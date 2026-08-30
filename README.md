@@ -141,6 +141,34 @@ einen frei wählbaren Ordner – am besten einen, den OneDrive/Nextcloud mitsync
 `app/sync.py` bleibt Platzhalter für eine spätere echte WebDAV-Zwei-Wege-Sync
 zu einer eigenen Nextcloud-Instanz (mit Lock gegen paralleles Offline-Arbeiten).
 
+## Schema-Migrationen
+
+Läuft ohne Alembic über `app/migrations.py`: eine geordnete Liste `MIGRATIONS`,
+die Version steckt in SQLites `PRAGMA user_version`. Beim Start (vor
+`db.create_all()`):
+
+- **frische DB** → wird direkt auf die aktuelle Version gestempelt
+- **bestehende DB mit älterer Version** → erst automatische Sicherung, dann die
+  offenen Migrationen der Reihe nach (jede in eigener Transaktion). Schlägt eine
+  fehl, bricht der Start ab; die DB bleibt auf der letzten erfolgreichen Stufe,
+  die Sicherung liegt im Backup-Ordner bzw. neben der DB.
+- **DB neuer als der Code** → Abbruch mit Hinweis auf `git pull`
+
+Für die Nutzerin heißt das weiterhin nur: `git pull` + neu starten.
+
+Eine neue Migration schreiben = Funktion ans Ende von `MIGRATIONS` hängen
+(nie umsortieren/löschen – der Index ist die Version):
+
+```python
+# neue Spalte: eine Zeile
+MIGRATIONS.append(lambda c: c.exec_driver_sql(
+    "ALTER TABLE schueler ADD COLUMN telefon VARCHAR(50)"))
+```
+
+Komplett neue Tabellen brauchen keine Migration – die legt `db.create_all()` an.
+Größere Umbauten (Constraints, Primärschlüssel) als eigene Funktion mit
+Tabellen-Neuaufbau (create/copy/drop/rename).
+
 ## Datenschutz
 
 `instance/` (inkl. `prod.sqlite3` mit echten Personendaten) ist per `.gitignore`

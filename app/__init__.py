@@ -27,7 +27,10 @@ def create_app():
     app.register_blueprint(admin_bp)
 
     with app.app_context():
-        db.create_all()
+        from app.migrations import schema_aktualisieren
+
+        schema_aktualisieren(app)   # offene Schema-Migrationen (mit Backup davor)
+        db.create_all()             # zusaetzlich komplett neue Tabellen anlegen
         _seed_notenschema_falls_leer()
         _seed_notenkategorien_falls_leer()
 
