@@ -88,14 +88,11 @@ Erzeugt Bildungsgänge, Klassen, SuS, Lernfelder und Beispiel-Noten mit Faker
 
 Einmalig einrichten:
 
-```
-# im Dev-Ordner (hier)
-git init
-git add -A
-git commit -m "Initialer Stand"
+Remote: `https://github.com/sveroja/VoSuSMa.git`. Beide Ordner sind Klone davon.
 
-# Prod-Ordner als Klon anlegen (Pfad frei wählbar)
-git clone C:\Notentool\Dev C:\Notentool\Prod
+```
+# Prod-Ordner als Klon von GitHub anlegen (Pfad frei wählbar)
+git clone https://github.com/sveroja/VoSuSMa.git C:\Notentool\Prod
 
 # im Prod-Ordner die .env anlegen (einmalig, wird nicht versioniert)
 cd C:\Notentool\Prod
@@ -108,9 +105,10 @@ Datenbank (`instance/dev.sqlite3` bzw. `instance/prod.sqlite3`).
 Änderungen übernehmen:
 
 ```
-# im Dev-Ordner: entwickeln, testen, dann festschreiben
+# im Dev-Ordner: entwickeln, testen, dann festschreiben und hochladen
 git add -A
 git commit -m "Was geändert wurde"
+git push
 
 # im Prod-Ordner: neuen Stand holen (App vorher schliessen)
 cd C:\Notentool\Prod
