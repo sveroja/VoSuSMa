@@ -14,7 +14,7 @@ GESCHLECHT_WAHL = [("", "–"), ("w", "weiblich"), ("m", "männlich"), ("d", "di
 
 def _aktuelle_klasse(schueler):
     for zuordnung in schueler.klassen_zuordnungen:
-        if zuordnung.bis is None:
+        if zuordnung.ist_aktiv:
             return zuordnung.klasse
     return None
 
@@ -39,7 +39,7 @@ def _schon_in_klasse(nachname, vorname, klasse_id):
 def liste():
     klasse_id = request.args.get("klasse_id", type=int)
 
-    query = Schueler.query.join(SchuelerKlasse).filter(SchuelerKlasse.bis.is_(None))
+    query = Schueler.query.join(SchuelerKlasse).filter(SchuelerKlasse.aktiv_filter())
     if klasse_id:
         query = query.filter(SchuelerKlasse.klasse_id == klasse_id)
     schueler_liste = query.order_by(Schueler.nachname, Schueler.vorname).all()

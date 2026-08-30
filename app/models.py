@@ -118,7 +118,7 @@ class Klasse(db.Model):
 
     @property
     def anzahl_schueler(self):
-        return sum(1 for z in self.schueler_zuordnungen if z.bis is None)
+        return sum(1 for z in self.schueler_zuordnungen if z.ist_aktiv)
 
     def __repr__(self):
         return f"<Klasse {self.bezeichnung}>"
@@ -153,10 +153,23 @@ class SchuelerKlasse(db.Model):
     schueler_id = db.Column(db.Integer, db.ForeignKey("schueler.id"), nullable=False)
     klasse_id = db.Column(db.Integer, db.ForeignKey("klassen.id"), nullable=False)
     von = db.Column(db.Date, nullable=False, default=date.today)
-    bis = db.Column(db.Date, nullable=True)  # NULL = aktuell aktive Zuordnung
+    # bis: NULL oder ein Datum in der Zukunft (z.B. Vertragsende aus dem
+    # Untis-Import) -> Zuordnung ist aktiv. Nur ein Datum in der Vergangenheit
+    # heisst "nicht mehr in der Klasse".
+    bis = db.Column(db.Date, nullable=True)
 
     schueler = db.relationship("Schueler", back_populates="klassen_zuordnungen")
     klasse = db.relationship("Klasse", back_populates="schueler_zuordnungen")
+
+    @property
+    def ist_aktiv(self):
+        return self.bis is None or self.bis >= date.today()
+
+    @classmethod
+    def aktiv_filter(cls, stichtag=None):
+        """SQL-Filter fuer aktive Zuordnungen (bis offen oder in der Zukunft)."""
+        stichtag = stichtag or date.today()
+        return db.or_(cls.bis.is_(None), cls.bis >= stichtag)
 
 
 class Lernfeld(_LernfeldNamen, db.Model):

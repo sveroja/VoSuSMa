@@ -40,7 +40,7 @@ def _lernfeld_der_klasse(klasse_id, lernfeld_id):
 def _aktive_schueler(klasse):
     return (
         Schueler.query.join(SchuelerKlasse)
-        .filter(SchuelerKlasse.klasse_id == klasse.id, SchuelerKlasse.bis.is_(None))
+        .filter(SchuelerKlasse.klasse_id == klasse.id, SchuelerKlasse.aktiv_filter())
         .order_by(Schueler.nachname, Schueler.vorname)
         .all()
     )
