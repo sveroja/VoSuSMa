@@ -1,0 +1,121 @@
+{# Erfassen-Buttons + Bulk-Dialog. Kontext: klasse, lernfeld, schueler_liste,
+   bulk_kategorien (Liste von Notenkategorie), heute (ISO-Datum). #}
+<p class="erfassen-buttons">
+    {% for k in bulk_kategorien %}
+        <button type="button" class="button"
+                onclick="bulkOeffnen({{ k.id }}, '{{ k.schluessel }}', '{{ k.bezeichnung }}')">
+            + {{ k.bezeichnung }} erfassen
+        </button>
+    {% endfor %}
+</p>
+
+<dialog id="bulk-dialog" class="bulk-dialog">
+    <form method="post" action="{{ url_for('lernfelder.noten_bulk', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">
+        <input type="hidden" name="kategorie_id" id="bulk-kategorie-id">
+        <input type="hidden" name="weiter" value="{{ request.path }}">
+        <h2 id="bulk-titel">Noten erfassen</h2>
+        <p class="subtitle">{{ klasse.bezeichnung }} – {{ lernfeld.label }}</p>
+        <div class="bulk-kopf">
+            <label>Erfassen als
+                <select name="modus" id="bulk-modus">
+                    <option value="note">direkte Note</option>
+                    <option value="punkte">Punkte</option>
+                </select>
+            </label>
+            <label id="bulk-maxpunkte-feld" hidden>Max. Punkte
+                <input type="text" inputmode="decimal" name="max_punkte" autocomplete="off" placeholder="z.B. 40">
+            </label>
+            <label id="bulk-reihenfolge-feld" hidden>Reihenfolge
+                <select id="bulk-reihenfolge">
+                    <option value="alpha">alphabetisch</option>
+                    <option value="zufall">zufällig</option>
+                </select>
+            </label>
+            <label>Datum
+                <input type="date" name="datum" value="{{ heute }}">
+            </label>
+            <label>Zweck / Bezeichnung
+                <input type="text" name="bezeichnung" placeholder="z.B. Mitarbeit 14.10. / KA 1" autocomplete="off">
+            </label>
+        </div>
+        <div class="bulk-table-wrap">
+            <table class="matrix">
+                <thead>
+                    <tr><th>SuS</th><th id="bulk-wert-kopf">Note</th></tr>
+                </thead>
+                <tbody id="bulk-tbody">
+                    {% for s in schueler_liste %}
+                        <tr data-idx="{{ loop.index0 }}">
+                            <td>{{ s.nachname }}, {{ s.vorname }}</td>
+                            <td><input type="text" inputmode="decimal" name="wert_{{ s.id }}"
+                                       class="bulk-note" autocomplete="off" placeholder="–"></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="form__actions">
+            <button type="submit">Speichern</button>
+            <button type="button" class="button button--secondary" onclick="document.getElementById('bulk-dialog').close()">Abbrechen</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+    var bulkDialog = document.getElementById('bulk-dialog');
+    var bulkModus = document.getElementById('bulk-modus');
+    var bulkMaxFeld = document.getElementById('bulk-maxpunkte-feld');
+    var bulkReihenfolgeFeld = document.getElementById('bulk-reihenfolge-feld');
+    var bulkReihenfolge = document.getElementById('bulk-reihenfolge');
+    var bulkWertKopf = document.getElementById('bulk-wert-kopf');
+    var bulkKategorieId = document.getElementById('bulk-kategorie-id');
+    var bulkTitel = document.getElementById('bulk-titel');
+    var bulkTbody = document.getElementById('bulk-tbody');
+
+    function bulkModusAnwenden() {
+        var punkte = bulkModus.value === 'punkte';
+        bulkMaxFeld.hidden = !punkte;
+        bulkWertKopf.textContent = punkte ? 'Punkte' : 'Note';
+        bulkReihenfolgeFeld.hidden = punkte;  // Reihenfolge nur bei direkter Note sinnvoll
+    }
+
+    function bulkSortieren() {
+        var rows = Array.prototype.slice.call(bulkTbody.querySelectorAll('tr'));
+        if (bulkReihenfolge.value === 'zufall') {
+            for (var i = rows.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                bulkTbody.insertBefore(rows[j], rows[i].nextSibling);
+                var t = rows[i]; rows[i] = rows[j]; rows[j] = t;
+            }
+        } else {
+            rows.sort(function (a, b) { return (+a.dataset.idx) - (+b.dataset.idx); })
+                .forEach(function (r) { bulkTbody.appendChild(r); });
+        }
+    }
+
+    bulkModus.addEventListener('change', bulkModusAnwenden);
+    bulkReihenfolge.addEventListener('change', bulkSortieren);
+
+    function bulkOeffnen(kategorieId, schluessel, bezeichnung) {
+        bulkKategorieId.value = kategorieId;
+        bulkTitel.textContent = bezeichnung + ' erfassen';
+        bulkModus.value = schluessel === 'muendlich_sonstige' ? 'note' : 'punkte';
+        bulkModusAnwenden();
+        bulkReihenfolge.value = 'alpha';
+        bulkSortieren();
+        bulkDialog.querySelectorAll('.bulk-note').forEach(function (i) { i.value = ''; });
+        bulkDialog.showModal();
+        var erstes = bulkDialog.querySelector('.bulk-note');
+        if (erstes) { erstes.focus(); }
+    }
+
+    // Enter springt zum nächsten Wertfeld (in aktueller Anzeige-Reihenfolge).
+    bulkDialog.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || !e.target.classList.contains('bulk-note')) { return; }
+        e.preventDefault();
+        var felder = Array.prototype.slice.call(bulkTbody.querySelectorAll('.bulk-note'));
+        var i = felder.indexOf(e.target);
+        var ziel = felder[i + 1] || bulkDialog.querySelector('button[type="submit"]');
+        ziel.focus();
+    });
+</script>

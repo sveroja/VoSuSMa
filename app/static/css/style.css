@@ -358,6 +358,24 @@ table.matrix td {
     white-space: nowrap;
 }
 
+table.matrix th a {
+    color: inherit;
+}
+
+.matrix .zell-input {
+    width: 3.4rem;
+    padding: 0.3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font: inherit;
+    text-align: center;
+}
+
+.matrix .zell-input:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px;
+}
+
 td.note--warn {
     background: #fff4e5;
 }

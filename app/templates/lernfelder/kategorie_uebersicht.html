@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ kategorie.bezeichnung }} – {{ lernfeld.label }} – {{ klasse.bezeichnung }} – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>{{ kategorie.bezeichnung }}</h1>
+        <a class="button button--secondary" href="{{ url_for('lernfelder.uebersicht', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">← Notenübersicht</a>
+    </div>
+    <p class="subtitle">{{ klasse.bezeichnung }} – {{ lernfeld.label }}</p>
+
+    {% if not schueler_liste %}
+        <p class="empty-state">In dieser Klasse sind aktuell keine SuS aktiv.</p>
+    {% else %}
+        {% include "_partials/bulk_dialog.html" %}
+
+        {% if not spalten %}
+            <p class="empty-state">Noch nichts erfasst – über den Knopf oben die erste Erfassung anlegen.</p>
+        {% else %}
+        <form method="post" action="{{ url_for('lernfelder.kategorie_speichern', klasse_id=klasse.id, lernfeld_id=lernfeld.id, kategorie_id=kategorie.id) }}">
+            {% for sp in spalten %}
+                <input type="hidden" name="sp_datum_{{ sp.idx }}" value="{{ sp.datum.isoformat() }}">
+                <input type="hidden" name="sp_bez_{{ sp.idx }}" value="{{ sp.bezeichnung }}">
+                <input type="hidden" name="sp_max_{{ sp.idx }}" value="{{ sp.max_punkte if sp.max_punkte is not none else '' }}">
+            {% endfor %}
+
+            <div class="matrix-wrap">
+                <table class="matrix">
+                    <thead>
+                        <tr>
+                            <th>Nachname</th>
+                            <th>Vorname</th>
+                            {% for sp in spalten %}
+                                <th>
+                                    {{ sp.datum.strftime('%d.%m.%y') }}
+                                    {% if sp.bezeichnung %}<br>{{ sp.bezeichnung }}{% endif %}
+                                    {% if ist_punkte and sp.max_punkte %}<br><span class="hinweis">max {{ sp.max_punkte | round | int }}</span>{% endif %}
+                                </th>
+                            {% endfor %}
+                            <th class="gesamt">⌀</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for zeile in zeilen %}
+                            <tr>
+                                <td>{{ zeile.schueler.nachname }}</td>
+                                <td>{{ zeile.schueler.vorname }}</td>
+                                {% for z in zeile.zellen %}
+                                    <td>
+                                        <input class="zell-input" type="text" inputmode="decimal" autocomplete="off"
+                                               name="{{ 'e_' ~ z.eintrag.id if z.eintrag else 'n_' ~ z.idx ~ '_' ~ zeile.schueler.id }}"
+                                               value="{{ z.rohwert }}" placeholder="–">
+                                    </td>
+                                {% endfor %}
+                                {% if zeile.schnitt is none %}
+                                    <td class="gesamt">–</td>
+                                {% else %}
+                                    <td class="gesamt {{ 'note--bad' if zeile.schnitt >= 5.5 else 'note--warn' if zeile.schnitt >= 4.5 else '' }}">{{ "%.1f"|format(zeile.schnitt) }}</td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form__actions">
+                <button type="submit">Speichern</button>
+            </div>
+            <p class="hinweis">
+                Feld leeren = Note löschen. Leeres Feld ausfüllen = Note ergänzen (übernimmt Datum/Bezeichnung der Spalte).
+                {% if ist_punkte %} Werte sind erreichte Punkte.{% endif %}
+            </p>
+        </form>
+        {% endif %}
+    {% endif %}
+{% endblock %}

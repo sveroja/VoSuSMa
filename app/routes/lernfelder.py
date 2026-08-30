@@ -13,7 +13,7 @@ from app.models import (
     SchuelerKlasse,
 )
 from app.gewichtung import gewichte_aus_formular
-from app.noten_logik import gesamtnote, kategorie_durchschnitt, parse_note
+from app.noten_logik import gesamtnote, kategorie_durchschnitt, note_aus_eintrag, parse_note
 from app.stammdaten import STANDARD_NOTENKATEGORIEN
 
 bp = Blueprint("lernfelder", __name__, url_prefix="/klassen/<int:klasse_id>/lernfelder")
@@ -44,6 +44,34 @@ def _aktive_schueler(klasse):
         .order_by(Schueler.nachname, Schueler.vorname)
         .all()
     )
+
+
+def _kategorie_des_lernfelds(lernfeld, kategorie_id):
+    kat = db.session.get(Notenkategorie, kategorie_id)
+    if kat is None or not any(g.kategorie_id == kat.id for g in lernfeld.gewichtungen):
+        abort(404)
+    return kat
+
+
+def _bulk_kategorien(lernfeld):
+    """Kategorien fuer die Erfassen-Buttons: mndl./sonstige zuerst, dann nach Gewicht."""
+    return [
+        g.kategorie
+        for g in sorted(
+            lernfeld.gewichtungen,
+            key=lambda g: (g.kategorie.schluessel != _KOLLABIERTE_KATEGORIE, -g.gewicht),
+        )
+    ]
+
+
+def _ist_punkte_kategorie(kategorie):
+    """mndl./sonstige -> direkte Note, alles andere -> Punkte (Heuristik wie im Bulk-Dialog)."""
+    return kategorie.schluessel != _KOLLABIERTE_KATEGORIE
+
+
+def _zahl(wert):
+    """Float -> Text fuers Eingabefeld (deutsche Kommaschreibweise, ohne ,0)."""
+    return "" if wert is None else f"{wert:g}".replace(".", ",")
 
 
 @bp.route("/")
@@ -262,14 +290,6 @@ def uebersicht(klasse_id, lernfeld_id):
         })
 
     kategorien_nach_gewicht = sorted(lernfeld.gewichtungen, key=lambda g: -g.gewicht)
-    # Erfassen-Buttons: mndl./sonstige zuerst (haeufigster Fall), dann nach Gewicht.
-    bulk_kategorien = [
-        g.kategorie
-        for g in sorted(
-            lernfeld.gewichtungen,
-            key=lambda g: (g.kategorie.schluessel != _KOLLABIERTE_KATEGORIE, -g.gewicht),
-        )
-    ]
     return render_template(
         "lernfelder/uebersicht.html",
         klasse=klasse,
@@ -277,10 +297,168 @@ def uebersicht(klasse_id, lernfeld_id):
         spalten=spalten,
         zeilen=zeilen,
         schueler_liste=schueler_liste,
-        bulk_kategorien=bulk_kategorien,
+        bulk_kategorien=_bulk_kategorien(lernfeld),
         gewicht_info=[(g.kategorie.bezeichnung, round(g.gewicht * 100)) for g in kategorien_nach_gewicht],
         heute=date.today().isoformat(),
     )
+
+
+@bp.route("/<int:lernfeld_id>/kategorie/<int:kategorie_id>")
+def kategorie_uebersicht(klasse_id, lernfeld_id, kategorie_id):
+    """Eine Ebene tiefer: alle Einzelnoten EINER Kategorie als bearbeitbare
+    Matrix (SuS x Erfassung). Spalten = (Datum, Bezeichnung)."""
+    klasse = Klasse.query.get_or_404(klasse_id)
+    lernfeld = _lernfeld_der_klasse(klasse_id, lernfeld_id)
+    kategorie = _kategorie_des_lernfelds(lernfeld, kategorie_id)
+    schueler_liste = _aktive_schueler(klasse)
+    ist_punkte = _ist_punkte_kategorie(kategorie)
+
+    eintraege = Notenereintrag.query.filter_by(
+        lernfeld_id=lernfeld.id, kategorie_id=kategorie.id
+    ).all()
+
+    schluessel_liste = sorted({(e.datum, (e.bezeichnung or "").strip()) for e in eintraege})
+    spalten = []
+    for i, (d, b) in enumerate(schluessel_liste):
+        gruppe = [e for e in eintraege if e.datum == d and (e.bezeichnung or "").strip() == b]
+        spalten.append({
+            "idx": i, "datum": d, "bezeichnung": b,
+            "max_punkte": next((e.max_punkte for e in gruppe if e.max_punkte), None),
+        })
+
+    eintrag_von = {}
+    for e in eintraege:
+        i = schluessel_liste.index((e.datum, (e.bezeichnung or "").strip()))
+        eintrag_von[(e.schueler_id, i)] = e
+
+    zeilen = []
+    for s in schueler_liste:
+        zellen, noten = [], []
+        for sp in spalten:
+            e = eintrag_von.get((s.id, sp["idx"]))
+            note = note_aus_eintrag(e) if e is not None else None
+            if note is not None:
+                noten.append(note)
+            if e is None:
+                rohwert = ""
+            elif ist_punkte:
+                rohwert = _zahl(e.erreichte_punkte)
+            else:
+                rohwert = _zahl(e.manuelle_note if e.manuelle_note is not None else e.note_direkt)
+            zellen.append({"eintrag": e, "note": note, "rohwert": rohwert, "idx": sp["idx"]})
+        zeilen.append({
+            "schueler": s, "zellen": zellen,
+            "schnitt": round(sum(noten) / len(noten), 2) if noten else None,
+        })
+
+    return render_template(
+        "lernfelder/kategorie_uebersicht.html",
+        klasse=klasse, lernfeld=lernfeld, kategorie=kategorie, ist_punkte=ist_punkte,
+        spalten=spalten, zeilen=zeilen, schueler_liste=schueler_liste,
+        bulk_kategorien=[kategorie], heute=date.today().isoformat(),
+    )
+
+
+@bp.route("/<int:lernfeld_id>/kategorie/<int:kategorie_id>/speichern", methods=["POST"])
+def kategorie_speichern(klasse_id, lernfeld_id, kategorie_id):
+    lernfeld = _lernfeld_der_klasse(klasse_id, lernfeld_id)
+    kategorie = _kategorie_des_lernfelds(lernfeld, kategorie_id)
+    ist_punkte = _ist_punkte_kategorie(kategorie)
+    zurueck = redirect(url_for(
+        "lernfelder.kategorie_uebersicht",
+        klasse_id=klasse_id, lernfeld_id=lernfeld_id, kategorie_id=kategorie_id,
+    ))
+
+    # Spalten-Metadaten (Datum/Bezeichnung/Max je Spaltenindex) aus hidden fields
+    spalten = {}
+    for key, val in request.form.items():
+        if not key.startswith("sp_datum_"):
+            continue
+        i = key[len("sp_datum_"):]
+        try:
+            d = date.fromisoformat(val.strip())
+        except ValueError:
+            continue
+        mp_roh = request.form.get(f"sp_max_{i}", "").strip().replace(",", ".")
+        spalten[i] = (
+            d,
+            request.form.get(f"sp_bez_{i}", "").strip() or None,
+            float(mp_roh) if mp_roh else None,
+        )
+
+    def _wert(roh):
+        roh = roh.strip().replace(",", ".")
+        if ist_punkte:
+            v = float(roh)
+            if v < 0:
+                raise ValueError
+            return v
+        return parse_note(roh)
+
+    geaendert = geloescht = angelegt = 0
+    fehler = []
+
+    for key in list(request.form):
+        if key.startswith("e_") and key[2:].isdigit():
+            e = db.session.get(Notenereintrag, int(key[2:]))
+            if e is None or e.lernfeld_id != lernfeld.id or e.kategorie_id != kategorie.id:
+                continue
+            roh = request.form[key].strip()
+            if not roh:
+                db.session.delete(e)
+                geloescht += 1
+                continue
+            try:
+                v = _wert(roh)
+            except ValueError:
+                fehler.append(roh)
+                continue
+            if ist_punkte:
+                if e.erreichte_punkte != v:
+                    e.erreichte_punkte = v
+                    geaendert += 1
+            elif e.manuelle_note is not None:
+                if e.manuelle_note != v:
+                    e.manuelle_note = v
+                    geaendert += 1
+            elif e.note_direkt != v:
+                e.note_direkt = v
+                geaendert += 1
+
+        elif key.startswith("n_") and request.form[key].strip():
+            teile = key.split("_", 2)
+            if len(teile) != 3 or teile[1] not in spalten or not teile[2].isdigit():
+                continue
+            d, bez, mp = spalten[teile[1]]
+            try:
+                v = _wert(request.form[key])
+            except ValueError:
+                fehler.append(request.form[key].strip())
+                continue
+            neu = Notenereintrag(
+                schueler_id=int(teile[2]), lernfeld_id=lernfeld.id,
+                kategorie_id=kategorie.id, datum=d, bezeichnung=bez,
+            )
+            if ist_punkte:
+                neu.erreichte_punkte = v
+                neu.max_punkte = mp
+            else:
+                neu.note_direkt = v
+            db.session.add(neu)
+            angelegt += 1
+
+    if geaendert or geloescht or angelegt:
+        db.session.commit()
+        flash(
+            f"Gespeichert – {geaendert} geändert, {angelegt} neu, {geloescht} gelöscht.",
+            "success",
+        )
+    if fehler:
+        erwartet = "Punkte ≥ 0" if ist_punkte else "Note 1,0–6,0"
+        flash(f"Übersprungen (ungültig, {erwartet}): " + ", ".join(fehler), "error")
+    if not (geaendert or geloescht or angelegt or fehler):
+        flash("Keine Änderungen.", "success")
+    return zurueck
 
 
 @bp.route("/<int:lernfeld_id>/noten-bulk", methods=["POST"])
@@ -290,7 +468,11 @@ def noten_bulk(klasse_id, lernfeld_id):
     direkte Note, Modus 'punkte' = erreichte Punkte auf gemeinsame Maximalpunkte."""
     lernfeld = _lernfeld_der_klasse(klasse_id, lernfeld_id)
     klasse = Klasse.query.get_or_404(klasse_id)
-    zurueck = redirect(url_for("lernfelder.uebersicht", klasse_id=klasse_id, lernfeld_id=lernfeld_id))
+
+    weiter = request.form.get("weiter", "")
+    ziel = weiter if weiter.startswith(f"/klassen/{klasse_id}/lernfelder/{lernfeld_id}/") else \
+        url_for("lernfelder.uebersicht", klasse_id=klasse_id, lernfeld_id=lernfeld_id)
+    zurueck = redirect(ziel)
 
     erlaubte_kategorie_ids = {g.kategorie_id for g in lernfeld.gewichtungen}
     kategorie = None

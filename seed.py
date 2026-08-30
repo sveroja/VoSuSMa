@@ -8,7 +8,7 @@ Aufruf:
 """
 import random
 import sys
-from datetime import date
+from datetime import date, timedelta
 
 from app.config import aktuelles_env
 
@@ -63,6 +63,29 @@ KLASSEN_DATEN = [("EH24a", "eh"), ("EH24b", "eh"), ("LOG23a", "log")]
 
 KATEGORIEN = list(STANDARD_NOTENKATEGORIEN)
 
+# Wird in seed() je Lernfeld befuellt: {lernfeld_id: {"muendlich": [(datum,bez)],
+# "klassenarbeit": [...], "abgabe": [...]}}
+_TERMINE_JE_LERNFELD = {}
+
+
+def _termine_fuer_lernfeld():
+    start = date.today() - timedelta(days=170)
+
+    def d(offset):
+        return start + timedelta(days=offset)
+
+    kw = start.isocalendar()[1]
+    muendlich = [
+        (d(off), f"Mitarbeit KW{(kw + i * 4) % 52 or 52}")
+        for i, off in enumerate(sorted(random.sample(range(0, 165), random.randint(3, 5))))
+    ]
+    klassenarbeit = [
+        (d(off), f"Klassenarbeit {i + 1}")
+        for i, off in enumerate(sorted(random.sample(range(30, 165), random.randint(1, 2))))
+    ]
+    abgabe = [(d(random.randint(20, 150)), "Hausaufgabe")] if random.random() < 0.7 else []
+    return {"muendlich": muendlich, "klassenarbeit": klassenarbeit, "abgabe": abgabe}
+
 
 def _get_or_create_kategorien():
     kategorien = {}
@@ -112,30 +135,32 @@ def _katalog_anlegen(kategorien):
 
 
 def _noten_fuer(schueler, lernfeld, kategorien):
-    for _ in range(random.randint(2, 4)):
-        db.session.add(Notenereintrag(
-            schueler_id=schueler.id, lernfeld_id=lernfeld.id,
-            kategorie_id=kategorien["muendlich_sonstige"].id,
-            datum=fake.date_between(start_date="-6M", end_date="today"),
-            bezeichnung="Mitarbeit",
-            note_direkt=round(random.uniform(1.0, 4.5), 1),
-        ))
-    for i in range(random.randint(1, 2)):
+    termine = _TERMINE_JE_LERNFELD[lernfeld.id]
+    # muendlich: pro Termin (gemeinsames Datum/Bezeichnung wie beim Bulk) fast
+    # jede/r eine Note - so sieht die Kategorie-Detailansicht realistisch aus.
+    for datum, bez in termine["muendlich"]:
+        if random.random() < 0.9:
+            db.session.add(Notenereintrag(
+                schueler_id=schueler.id, lernfeld_id=lernfeld.id,
+                kategorie_id=kategorien["muendlich_sonstige"].id,
+                datum=datum, bezeichnung=bez,
+                note_direkt=round(random.uniform(1.0, 4.5), 1),
+            ))
+    for datum, bez in termine["klassenarbeit"]:
         db.session.add(Notenereintrag(
             schueler_id=schueler.id, lernfeld_id=lernfeld.id,
             kategorie_id=kategorien["klassenarbeit"].id,
-            datum=fake.date_between(start_date="-6M", end_date="today"),
-            bezeichnung=f"Klassenarbeit {i + 1}",
+            datum=datum, bezeichnung=bez,
             erreichte_punkte=round(random.uniform(0.2, 1.0) * 40, 1), max_punkte=40,
         ))
-    if random.random() < 0.6:
-        db.session.add(Notenereintrag(
-            schueler_id=schueler.id, lernfeld_id=lernfeld.id,
-            kategorie_id=kategorien["abgabe"].id,
-            datum=fake.date_between(start_date="-6M", end_date="today"),
-            bezeichnung="Hausaufgabe",
-            erreichte_punkte=round(random.uniform(0.3, 1.0) * 20, 1), max_punkte=20,
-        ))
+    for datum, bez in termine["abgabe"]:
+        if random.random() < 0.7:
+            db.session.add(Notenereintrag(
+                schueler_id=schueler.id, lernfeld_id=lernfeld.id,
+                kategorie_id=kategorien["abgabe"].id,
+                datum=datum, bezeichnung=bez,
+                erreichte_punkte=round(random.uniform(0.3, 1.0) * 20, 1), max_punkte=20,
+            ))
 
 
 def seed():
@@ -156,6 +181,9 @@ def seed():
         vorlagen = vorlagen[: len(vorlagen) - random.randint(0, 1)]
         lernfelder_aus_vorlagen(klasse, vorlagen)
         db.session.flush()
+
+        for lernfeld in klasse.lernfelder:
+            _TERMINE_JE_LERNFELD[lernfeld.id] = _termine_fuer_lernfeld()
 
         for _ in range(random.randint(15, 22)):
             geschlecht = random.choices(["w", "m", "d"], weights=[48, 48, 4])[0]
