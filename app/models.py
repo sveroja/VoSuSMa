@@ -100,6 +100,28 @@ class VorlageGewichtung(db.Model):
     kategorie = db.relationship("Notenkategorie")
 
 
+class Betrieb(db.Model):
+    """Ausbildungsbetrieb. Optional an SuS haengbar (Schueler.betrieb_id).
+    Zentral unter /admin/betriebe gepflegt."""
+    __tablename__ = "betriebe"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False, unique=True)
+    ansprechpartner = db.Column(db.String(150), nullable=True)
+    email = db.Column(db.String(255), nullable=True)  # Ausbilder-/Betriebs-Kontakt
+    telefon = db.Column(db.String(50), nullable=True)
+    aktiv = db.Column(db.Boolean, default=True, nullable=False)
+
+    schueler = db.relationship("Schueler", back_populates="betrieb")
+
+    @property
+    def anzahl_schueler(self):
+        return len(self.schueler)
+
+    def __repr__(self):
+        return f"<Betrieb {self.name}>"
+
+
 class Klasse(db.Model):
     __tablename__ = "klassen"
 
@@ -133,13 +155,24 @@ class Schueler(db.Model):
     geburtsdatum = db.Column(db.Date, nullable=True)
     einschulungsdatum = db.Column(db.Date, nullable=True)
     geschlecht = db.Column(db.String(1), nullable=True)  # 'm' | 'w' | 'd', optional
-    email = db.Column(db.String(255), nullable=True)
-    # dienstliche/betriebliche Mail-Adresse - fuer eine spaetere Funktion
+    email = db.Column(db.String(255), nullable=True)  # private Mail der SuS
+    # Arbeitsmail der SuS im Betrieb (persoenlich). Getrennt vom allgemeinen
+    # Betriebs-Kontakt Betrieb.email.
     betriebs_email = db.Column(db.String(255), nullable=True)
+    betrieb_id = db.Column(db.Integer, db.ForeignKey("betriebe.id"), nullable=True)
 
+    betrieb = db.relationship("Betrieb", back_populates="schueler")
     klassen_zuordnungen = db.relationship(
         "SchuelerKlasse", back_populates="schueler", cascade="all, delete-orphan"
     )
+
+    @property
+    def betrieb_mail_anzeige(self):
+        """Fuer die SuS-Liste: Mail des zugeordneten Betriebs, sonst die
+        persoenliche Arbeitsmail als Fallback."""
+        if self.betrieb and self.betrieb.email:
+            return self.betrieb.email
+        return self.betriebs_email or None
 
     def __repr__(self):
         return f"<Schueler {self.nachname}, {self.vorname}>"

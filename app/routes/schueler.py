@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.extensions import db
 from app.importe import parse_sus_liste
-from app.models import Klasse, Notenereintrag, Schueler, SchuelerKlasse
+from app.models import Betrieb, Klasse, Notenereintrag, Schueler, SchuelerKlasse
 from app.noten_logik import gesamtnote, kategorie_durchschnitt, note_aus_eintrag
 
 bp = Blueprint("schueler", __name__, url_prefix="/schueler")
@@ -54,13 +54,19 @@ def liste():
     )
 
 
+def _betriebe_wahl():
+    return Betrieb.query.filter_by(aktiv=True).order_by(Betrieb.name).all()
+
+
 @bp.route("/neu", methods=["GET", "POST"])
 def neu():
     klassen = Klasse.query.filter_by(aktiv=True).order_by(Klasse.bezeichnung).all()
+    betriebe = _betriebe_wahl()
 
     if request.method != "POST":
         return render_template(
-            "schueler/neu.html", klassen=klassen, form={}, geschlecht_wahl=GESCHLECHT_WAHL
+            "schueler/neu.html", klassen=klassen, betriebe=betriebe, form={},
+            geschlecht_wahl=GESCHLECHT_WAHL,
         )
 
     form = {
@@ -70,10 +76,17 @@ def neu():
         "geschlecht": request.form.get("geschlecht", "").strip(),
         "email": request.form.get("email", "").strip(),
         "betriebs_email": request.form.get("betriebs_email", "").strip(),
+        "betrieb_id": request.form.get("betrieb_id", "").strip(),
         "klasse_id": request.form.get("klasse_id", "").strip(),
     }
 
     fehler = []
+    betrieb = None
+    if form["betrieb_id"]:
+        betrieb = Betrieb.query.get(int(form["betrieb_id"])) if form["betrieb_id"].isdigit() else None
+        if betrieb is None:
+            fehler.append("Ungültiger Betrieb ausgewählt.")
+
     if not form["vorname"]:
         fehler.append("Vorname darf nicht leer sein.")
     elif len(form["vorname"]) > 80:
@@ -106,7 +119,8 @@ def neu():
         for meldung in fehler:
             flash(meldung, "error")
         return render_template(
-            "schueler/neu.html", klassen=klassen, form=form, geschlecht_wahl=GESCHLECHT_WAHL
+            "schueler/neu.html", klassen=klassen, betriebe=betriebe, form=form,
+            geschlecht_wahl=GESCHLECHT_WAHL,
         ), 400
 
     schueler = Schueler(
@@ -116,6 +130,7 @@ def neu():
         geschlecht=form["geschlecht"] or None,
         email=form["email"] or None,
         betriebs_email=form["betriebs_email"] or None,
+        betrieb_id=betrieb.id if betrieb else None,
     )
     db.session.add(schueler)
     db.session.flush()
@@ -169,6 +184,143 @@ def detail(schueler_id):
         klasse=klasse,
         lernfelder_uebersicht=lernfelder_uebersicht,
     )
+
+
+@bp.route("/<int:schueler_id>/bearbeiten", methods=["GET", "POST"])
+def bearbeiten(schueler_id):
+    schueler = Schueler.query.get_or_404(schueler_id)
+    betriebe = _betriebe_wahl()
+
+    if request.method != "POST":
+        form = {
+            "vorname": schueler.vorname,
+            "nachname": schueler.nachname,
+            "geburtsdatum": schueler.geburtsdatum.isoformat() if schueler.geburtsdatum else "",
+            "geschlecht": schueler.geschlecht or "",
+            "email": schueler.email or "",
+            "betriebs_email": schueler.betriebs_email or "",
+            "betrieb_id": str(schueler.betrieb_id) if schueler.betrieb_id else "",
+        }
+        return render_template(
+            "schueler/bearbeiten.html", schueler=schueler, betriebe=betriebe, form=form,
+            geschlecht_wahl=GESCHLECHT_WAHL,
+        )
+
+    form = {
+        "vorname": request.form.get("vorname", "").strip(),
+        "nachname": request.form.get("nachname", "").strip(),
+        "geburtsdatum": request.form.get("geburtsdatum", "").strip(),
+        "geschlecht": request.form.get("geschlecht", "").strip(),
+        "email": request.form.get("email", "").strip(),
+        "betriebs_email": request.form.get("betriebs_email", "").strip(),
+        "betrieb_id": request.form.get("betrieb_id", "").strip(),
+    }
+
+    fehler = []
+    if not form["vorname"] or len(form["vorname"]) > 80:
+        fehler.append("Vorname darf nicht leer und höchstens 80 Zeichen lang sein.")
+    if not form["nachname"] or len(form["nachname"]) > 80:
+        fehler.append("Nachname darf nicht leer und höchstens 80 Zeichen lang sein.")
+    if form["geschlecht"] and form["geschlecht"] not in ("w", "m", "d"):
+        fehler.append("Ungültige Geschlechtsangabe.")
+
+    geburtsdatum = None
+    if form["geburtsdatum"]:
+        try:
+            geburtsdatum = date.fromisoformat(form["geburtsdatum"])
+        except ValueError:
+            fehler.append("Geburtsdatum ist ungültig.")
+
+    betrieb = None
+    if form["betrieb_id"]:
+        betrieb = Betrieb.query.get(int(form["betrieb_id"])) if form["betrieb_id"].isdigit() else None
+        if betrieb is None:
+            fehler.append("Ungültiger Betrieb ausgewählt.")
+
+    if fehler:
+        for meldung in fehler:
+            flash(meldung, "error")
+        return render_template(
+            "schueler/bearbeiten.html", schueler=schueler, betriebe=betriebe, form=form,
+            geschlecht_wahl=GESCHLECHT_WAHL,
+        ), 400
+
+    schueler.vorname = form["vorname"]
+    schueler.nachname = form["nachname"]
+    schueler.geburtsdatum = geburtsdatum
+    schueler.geschlecht = form["geschlecht"] or None
+    schueler.email = form["email"] or None
+    schueler.betriebs_email = form["betriebs_email"] or None
+    schueler.betrieb_id = betrieb.id if betrieb else None
+    db.session.commit()
+
+    flash("Änderungen gespeichert.", "success")
+    return redirect(url_for("schueler.detail", schueler_id=schueler.id))
+
+
+def _andere_aktive_klassen(schueler, ausser_klasse_id):
+    return [
+        z for z in schueler.klassen_zuordnungen
+        if z.ist_aktiv and z.klasse_id != ausser_klasse_id
+    ]
+
+
+@bp.route("/<int:schueler_id>/loeschen", methods=["GET", "POST"])
+def loeschen(schueler_id):
+    schueler = Schueler.query.get_or_404(schueler_id)
+    klasse_id = request.values.get("klasse_id", type=int)
+    klasse = Klasse.query.get(klasse_id) if klasse_id else None
+
+    # Nur die Klassenzuordnung lösen (statt der ganzen Person), wenn die SuS
+    # noch in mindestens einer anderen Klasse aktiv ist.
+    nur_zuordnung = bool(klasse and _andere_aktive_klassen(schueler, klasse.id))
+
+    name = f"{schueler.vorname} {schueler.nachname}"
+    anzahl_noten = Notenereintrag.query.filter_by(schueler_id=schueler.id).count()
+
+    if request.method != "POST":
+        if nur_zuordnung:
+            warnung = (
+                f"'{name}' wird aus der Klasse {klasse.bezeichnung} entfernt "
+                f"(inkl. der dortigen Noteneinträge). Die Person bleibt in ihren "
+                f"übrigen Klassen erhalten."
+            )
+            knopf = f"Aus {klasse.bezeichnung} entfernen"
+        else:
+            warnung = (
+                f"'{name}' wird vollständig gelöscht – mit allen Klassenzuordnungen "
+                f"und {anzahl_noten} Noteneinträgen. Das lässt sich nicht rückgängig machen."
+            )
+            knopf = "Vollständig löschen"
+        return render_template(
+            "schueler/loeschen.html",
+            schueler=schueler, klasse=klasse, nur_zuordnung=nur_zuordnung,
+            warnung=warnung, knopf=knopf, bestaetigung_wort=name,
+        )
+
+    if request.form.get("bestaetigung", "").strip() != name:
+        flash("Bestätigung stimmte nicht – nichts gelöscht.", "error")
+        return redirect(url_for("schueler.detail", schueler_id=schueler.id))
+
+    if nur_zuordnung:
+        lernfeld_ids = [lf.id for lf in klasse.lernfelder]
+        if lernfeld_ids:
+            Notenereintrag.query.filter(
+                Notenereintrag.schueler_id == schueler.id,
+                Notenereintrag.lernfeld_id.in_(lernfeld_ids),
+            ).delete(synchronize_session=False)
+        SchuelerKlasse.query.filter_by(
+            schueler_id=schueler.id, klasse_id=klasse.id
+        ).delete(synchronize_session=False)
+        db.session.commit()
+        flash(f"'{name}' wurde aus {klasse.bezeichnung} entfernt.", "success")
+        return redirect(url_for("schueler.liste", klasse_id=klasse.id))
+
+    Notenereintrag.query.filter_by(schueler_id=schueler.id).delete(synchronize_session=False)
+    db.session.delete(schueler)  # SchuelerKlasse hängt per Cascade dran
+    db.session.commit()
+    flash(f"'{name}' wurde vollständig gelöscht.", "success")
+    return redirect(url_for("schueler.liste", klasse_id=klasse_id))
 
 
 @bp.route("/import/<int:klasse_id>", methods=["GET", "POST"])

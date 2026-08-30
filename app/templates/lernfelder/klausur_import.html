@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}CSV-Import – {{ lernfeld.label }} – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Noten aus CSV importieren</h1>
+        <a class="button button--secondary" href="{{ url_for('lernfelder.uebersicht', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">← Notenübersicht</a>
+    </div>
+    <p class="subtitle">{{ klasse.bezeichnung }} – {{ lernfeld.label }}</p>
+
+    <p class="hinweis">
+        CSV mit Kopfzeile und den Spalten <code>Nachname</code>, <code>Vorname</code>
+        und <code>Punkte</code> (alternativ <code>Note</code> oder <code>Wert</code>).
+        Trennzeichen <code>;</code>, <code>,</code> oder Tab. Die Zuordnung erfolgt
+        über den Namen; nicht gefundene SuS werden in der Vorschau markiert.
+    </p>
+
+    <form method="post" class="form" enctype="multipart/form-data">
+        <div class="form__field">
+            <label for="kategorie_id">Kategorie</label>
+            <select id="kategorie_id" name="kategorie_id" required>
+                {% for k in kategorien %}
+                    <option value="{{ k.id }}">{{ k.bezeichnung }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form__field">
+            <label for="max_punkte">Max. Punkte (nur bei Punkte-Kategorien)</label>
+            <input type="text" inputmode="decimal" id="max_punkte" name="max_punkte" autocomplete="off" placeholder="z.B. 40">
+        </div>
+        <div class="form__field">
+            <label for="datum">Datum</label>
+            <input type="date" id="datum" name="datum" value="{{ heute }}">
+        </div>
+        <div class="form__field">
+            <label for="bezeichnung">Zweck / Bezeichnung</label>
+            <input type="text" id="bezeichnung" name="bezeichnung" autocomplete="off" placeholder="z.B. Klassenarbeit 2">
+        </div>
+        <div class="form__field">
+            <label for="csv_datei">CSV-Datei</label>
+            <input type="file" id="csv_datei" name="csv_datei" accept=".csv,.txt,text/csv" required>
+        </div>
+        <div class="form__actions">
+            <button type="submit">Vorschau</button>
+            <a class="button button--secondary" href="{{ url_for('lernfelder.uebersicht', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}

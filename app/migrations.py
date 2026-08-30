@@ -29,7 +29,15 @@ from app.extensions import db
 # def _m_0001_schueler_telefon(conn):
 #     conn.exec_driver_sql("ALTER TABLE schueler ADD COLUMN telefon VARCHAR(50)")
 
-MIGRATIONS = []
+def _m_0001_schueler_betrieb_id(conn):
+    # Neue Tabelle "betriebe" legt db.create_all() an - hier nur die FK-Spalte an
+    # der bestehenden schueler-Tabelle. SQLite erzwingt FKs ohnehin nicht.
+    conn.exec_driver_sql("ALTER TABLE schueler ADD COLUMN betrieb_id INTEGER")
+
+
+MIGRATIONS = [
+    _m_0001_schueler_betrieb_id,
+]
 
 
 # ---------------------------------------------------------------------------

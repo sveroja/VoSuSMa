@@ -111,3 +111,70 @@ def parse_sus_liste(rohdaten: bytes) -> tuple[list[dict], list[str]]:
     if not zeilen:
         warnungen.append("Keine Datenzeilen gefunden.")
     return zeilen, warnungen
+
+
+# Spaltenueberschriften fuer den Klausur-/Notenimport einer Kategorie
+KLAUSUR_SPALTEN = {
+    "nachname": ("langname", "nachname", "name"),
+    "vorname": ("vorname",),
+    "wert": ("wert", "punkte", "note", "ergebnis", "erreicht", "erreichte punkte"),
+}
+
+
+def parse_klausur_liste(rohdaten: bytes) -> tuple[list[dict], list[str]]:
+    """Liest eine CSV mit Nachname/Vorname + einem Wert je SuS (Punkte oder Note,
+    je nach Ziel-Kategorie). Gibt (zeilen, warnungen) zurueck; jede Zeile:
+    nachname, vorname, wert(str, roh), fehler(list). Der Wert wird hier NICHT
+    interpretiert - das macht die Route je nach Modus (Punkte/Note)."""
+    text = _decode(rohdaten).replace("\r\n", "\n").replace("\r", "\n")
+    rohzeilen = [z for z in text.split("\n") if z.strip()]
+    if not rohzeilen:
+        return [], ["Die Datei ist leer."]
+
+    trenner = "\t" if "\t" in rohzeilen[0] else (";" if ";" in rohzeilen[0] else ",")
+    kopf = [z.strip().lower().strip('"') for z in rohzeilen[0].split(trenner)]
+
+    def spalte(feld):
+        for name in KLAUSUR_SPALTEN[feld]:
+            if name in kopf:
+                return kopf.index(name)
+        return None
+
+    idx = {feld: spalte(feld) for feld in KLAUSUR_SPALTEN}
+    if idx["nachname"] is None or idx["vorname"] is None or idx["wert"] is None:
+        return [], [
+            "Spalten 'Nachname', 'Vorname' und 'Punkte' (bzw. 'Note'/'Wert') "
+            "nicht gefunden – bitte eine Kopfzeile mit diesen Spalten verwenden."
+        ]
+
+    def wert(felder, feld):
+        i = idx[feld]
+        if i is None or i >= len(felder):
+            return ""
+        return felder[i].strip().strip('"')
+
+    zeilen, warnungen = [], []
+    for nr, roh in enumerate(rohzeilen[1:], start=2):
+        felder = roh.split(trenner)
+        nachname = wert(felder, "nachname")
+        vorname = wert(felder, "vorname")
+        rohwert = wert(felder, "wert")
+        if not nachname and not vorname and not rohwert:
+            continue
+
+        fehler = []
+        if not nachname or not vorname:
+            fehler.append("Nach- oder Vorname fehlt")
+        if not rohwert:
+            fehler.append("kein Wert")
+
+        zeilen.append({
+            "nachname": nachname,
+            "vorname": vorname,
+            "wert": rohwert,
+            "fehler": fehler,
+        })
+
+    if not zeilen:
+        warnungen.append("Keine Datenzeilen gefunden.")
+    return zeilen, warnungen

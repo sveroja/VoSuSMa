@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_partials/loesch_bestaetigung.html" import loesch_bestaetigung %}
+{% block title %}Klasse {{ klasse.bezeichnung }} löschen – VoSuSMa{% endblock %}
+{% block content %}
+    {{ loesch_bestaetigung(
+        titel="Klasse löschen",
+        warnung=warnung,
+        wort=klasse.bezeichnung,
+        action=url_for('klassen.loeschen', klasse_id=klasse.id),
+        abbrechen_url=url_for('klassen.liste'),
+        knopf_text="Klasse endgültig löschen") }}
+{% endblock %}

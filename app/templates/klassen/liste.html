@@ -31,6 +31,7 @@
                         <td class="table-actions">
                             <a href="{{ url_for('schueler.liste', klasse_id=klasse.id) }}">SuS</a>
                             <a href="{{ url_for('lernfelder.liste', klasse_id=klasse.id) }}">Lernfelder</a>
+                            <a href="{{ url_for('klassen.loeschen', klasse_id=klasse.id) }}">löschen</a>
                         </td>
                     </tr>
                 {% endfor %}

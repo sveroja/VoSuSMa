@@ -28,8 +28,17 @@
             <input type="email" id="email" name="email" value="{{ form.get('email', '') }}" maxlength="255">
         </div>
         <div class="form__field">
-            <label for="betriebs_email">E-Mail (Betrieb)</label>
+            <label for="betriebs_email">E-Mail (Betrieb, persönlich)</label>
             <input type="email" id="betriebs_email" name="betriebs_email" value="{{ form.get('betriebs_email', '') }}" maxlength="255">
+        </div>
+        <div class="form__field">
+            <label for="betrieb_id">Ausbildungsbetrieb</label>
+            <select id="betrieb_id" name="betrieb_id">
+                <option value="">– keiner –</option>
+                {% for b in betriebe %}
+                    <option value="{{ b.id }}" {% if form.get('betrieb_id') == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div class="form__field">
             <label for="klasse_id">Klasse</label>

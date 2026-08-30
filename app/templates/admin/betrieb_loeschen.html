@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_partials/loesch_bestaetigung.html" import loesch_bestaetigung %}
+{% block title %}Betrieb {{ betrieb.name }} löschen – VoSuSMa{% endblock %}
+{% block content %}
+    {{ loesch_bestaetigung(
+        titel="Betrieb löschen",
+        warnung=warnung,
+        wort=betrieb.name,
+        action=url_for('admin.betrieb_loeschen', betrieb_id=betrieb.id),
+        abbrechen_url=url_for('admin.betrieb_liste'),
+        knopf_text="Betrieb endgültig löschen") }}
+{% endblock %}

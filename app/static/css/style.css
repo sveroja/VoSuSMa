@@ -34,7 +34,7 @@ a {
 }
 
 .site-header__inner {
-    max-width: 960px;
+    max-width: 1280px;
     margin: 0 auto;
     padding: 0.9rem 1.5rem;
     display: flex;
@@ -85,9 +85,15 @@ a {
 }
 
 .content {
-    max-width: 960px;
+    max-width: 1280px;
     margin: 0 auto;
     padding: 2rem 1.5rem;
+}
+
+/* Für die breiten Matrix-Ansichten (Klassen-Notenübersicht, Kategorie-Detail):
+   fast Vollbild, damit möglichst viele Spalten ohne Scrollen passen. */
+.content--wide {
+    max-width: 1800px;
 }
 
 h1 {

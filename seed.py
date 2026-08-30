@@ -25,6 +25,7 @@ from app import create_app
 from app.extensions import db
 from app.lernfeld_service import lernfelder_aus_vorlagen
 from app.models import (
+    Betrieb,
     Bildungsgang,
     Klasse,
     Lernfeld,
@@ -106,6 +107,7 @@ def _raeume_fake_daten_auf():
     Lernfeld.query.delete()
     SchuelerKlasse.query.delete()
     Schueler.query.delete()
+    Betrieb.query.delete()
     Klasse.query.delete()
     VorlageGewichtung.query.delete()
     Lernfeldvorlage.query.delete()
@@ -163,10 +165,28 @@ def _noten_fuer(schueler, lernfeld, kategorien):
             ))
 
 
+def _betriebe_anlegen(anzahl=12):
+    betriebe = []
+    for _ in range(anzahl):
+        name = fake.unique.company()
+        betrieb = Betrieb(
+            name=name,
+            ansprechpartner=fake.name(),
+            email=f"ausbildung@{fake.domain_name()}",
+            telefon=fake.phone_number(),
+        )
+        db.session.add(betrieb)
+        betriebe.append(betrieb)
+    db.session.flush()
+    return betriebe
+
+
 def seed():
     _raeume_fake_daten_auf()
+    fake.unique.clear()
     kategorien = _get_or_create_kategorien()
     bildungsgaenge = _katalog_anlegen(kategorien)
+    betriebe = _betriebe_anlegen()
 
     for bezeichnung, bg_schluessel in KLASSEN_DATEN:
         bg = bildungsgaenge[bg_schluessel]
@@ -190,6 +210,7 @@ def seed():
             vorname = fake.first_name_female() if geschlecht == "w" else (
                 fake.first_name_male() if geschlecht == "m" else fake.first_name()
             )
+            betrieb = random.choice(betriebe) if random.random() < 0.75 else None
             schueler = Schueler(
                 nachname=fake.last_name(),
                 vorname=vorname,
@@ -197,6 +218,11 @@ def seed():
                 einschulungsdatum=date(2025, 8, 1),
                 geschlecht=geschlecht,
                 email=fake.ascii_free_email(),
+                betrieb=betrieb,
+                betriebs_email=(
+                    f"{vorname.lower()}.{fake.last_name().lower()}@{fake.domain_name()}"
+                    if betrieb and random.random() < 0.5 else None
+                ),
             )
             db.session.add(schueler)
             db.session.flush()
@@ -210,6 +236,7 @@ def seed():
 
     print(
         f"Fake-Daten erzeugt: {Bildungsgang.query.count()} Bildungsgänge, "
+        f"{Betrieb.query.count()} Betriebe, "
         f"{Lernfeldvorlage.query.count()} Lernfeldvorlagen, {Klasse.query.count()} Klassen, "
         f"{Schueler.query.count()} SuS, {Lernfeld.query.count()} Lernfelder, "
         f"{Notenereintrag.query.count()} Noteneinträge."

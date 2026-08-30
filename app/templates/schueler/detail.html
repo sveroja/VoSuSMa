@@ -3,16 +3,22 @@
 {% block content %}
     <div class="page-header">
         <h1>{{ schueler.vorname }} {{ schueler.nachname }}</h1>
-        {% if klasse %}
-            <span class="badge badge--aktiv">{{ klasse.bezeichnung }}</span>
-        {% endif %}
+        <div class="table-actions">
+            {% if klasse %}
+                <span class="badge badge--aktiv">{{ klasse.bezeichnung }}</span>
+            {% endif %}
+            <a class="button button--secondary" href="{{ url_for('schueler.bearbeiten', schueler_id=schueler.id) }}">Bearbeiten</a>
+            <a class="button button--secondary" href="{{ url_for('schueler.loeschen', schueler_id=schueler.id, klasse_id=klasse.id if klasse else None) }}">Löschen</a>
+        </div>
     </div>
 
     {% set infos = [] %}
     {% if schueler.geschlecht %}{% set _ = infos.append({'w':'weiblich','m':'männlich','d':'divers'}[schueler.geschlecht]) %}{% endif %}
     {% if schueler.geburtsdatum %}{% set _ = infos.append('geb. ' ~ schueler.geburtsdatum.strftime('%d.%m.%Y')) %}{% endif %}
+    {% if schueler.betrieb %}{% set _ = infos.append('Betrieb: ' ~ schueler.betrieb.name) %}{% endif %}
     {% if schueler.email %}{% set _ = infos.append(schueler.email) %}{% endif %}
-    {% if schueler.betriebs_email %}{% set _ = infos.append(schueler.betriebs_email ~ ' (Betrieb)') %}{% endif %}
+    {% if schueler.betriebs_email %}{% set _ = infos.append(schueler.betriebs_email ~ ' (Betrieb, persönlich)') %}{% endif %}
+    {% if schueler.betrieb and schueler.betrieb.email %}{% set _ = infos.append(schueler.betrieb.email ~ ' (Betrieb)') %}{% endif %}
     {% if infos %}<p class="subtitle">{{ infos | join(' · ') }}</p>{% endif %}
 
     {% if not klasse %}

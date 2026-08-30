@@ -3,6 +3,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from app.extensions import db
 from app.gewichtung import gewichte_aus_formular
 from app.models import (
+    Betrieb,
     Bildungsgang,
     Lernfeldvorlage,
     Notenkategorie,
@@ -243,3 +244,113 @@ def vorlage_loeschen(vorlage_id):
     db.session.commit()
     flash(f"Vorlage '{label}' gelöscht. Bestehende Klassen bleiben unverändert.", "success")
     return redirect(url_for("admin.bildungsgang_detail", bildungsgang_id=bg_id))
+
+
+# --------------------------------------------------------------------------- #
+#  Betriebe (Ausbildungsbetriebe)
+# --------------------------------------------------------------------------- #
+def _betrieb_form_lesen(betrieb=None):
+    form = {
+        "name": request.form.get("name", "").strip(),
+        "ansprechpartner": request.form.get("ansprechpartner", "").strip(),
+        "email": request.form.get("email", "").strip(),
+        "telefon": request.form.get("telefon", "").strip(),
+        "aktiv": request.form.get("aktiv") == "on",
+    }
+    fehler = []
+    if not form["name"]:
+        fehler.append("Name darf nicht leer sein.")
+    elif len(form["name"]) > 150:
+        fehler.append("Name darf maximal 150 Zeichen lang sein.")
+    else:
+        andere = Betrieb.query.filter_by(name=form["name"]).first()
+        if andere and (betrieb is None or andere.id != betrieb.id):
+            fehler.append(f"Betrieb '{form['name']}' existiert bereits.")
+    return form, fehler
+
+
+@bp.route("/betriebe")
+def betrieb_liste():
+    betriebe = Betrieb.query.order_by(Betrieb.name).all()
+    return render_template("admin/betrieb_liste.html", betriebe=betriebe)
+
+
+@bp.route("/betriebe/neu", methods=["GET", "POST"])
+def betrieb_neu():
+    if request.method != "POST":
+        return render_template(
+            "admin/betrieb_form.html", form={"aktiv": True}, titel="Betrieb anlegen"
+        )
+    form, fehler = _betrieb_form_lesen()
+    if fehler:
+        for m in fehler:
+            flash(m, "error")
+        return render_template("admin/betrieb_form.html", form=form, titel="Betrieb anlegen"), 400
+
+    betrieb = Betrieb(
+        name=form["name"],
+        ansprechpartner=form["ansprechpartner"] or None,
+        email=form["email"] or None,
+        telefon=form["telefon"] or None,
+        aktiv=form["aktiv"],
+    )
+    db.session.add(betrieb)
+    db.session.commit()
+    flash(f"Betrieb '{betrieb.name}' wurde angelegt.", "success")
+    return redirect(url_for("admin.betrieb_liste"))
+
+
+@bp.route("/betriebe/<int:betrieb_id>/bearbeiten", methods=["GET", "POST"])
+def betrieb_bearbeiten(betrieb_id):
+    betrieb = Betrieb.query.get_or_404(betrieb_id)
+    if request.method != "POST":
+        form = {
+            "name": betrieb.name,
+            "ansprechpartner": betrieb.ansprechpartner or "",
+            "email": betrieb.email or "",
+            "telefon": betrieb.telefon or "",
+            "aktiv": betrieb.aktiv,
+        }
+        return render_template("admin/betrieb_form.html", form=form, titel="Betrieb bearbeiten")
+
+    form, fehler = _betrieb_form_lesen(betrieb)
+    if fehler:
+        for m in fehler:
+            flash(m, "error")
+        return render_template("admin/betrieb_form.html", form=form, titel="Betrieb bearbeiten"), 400
+
+    betrieb.name = form["name"]
+    betrieb.ansprechpartner = form["ansprechpartner"] or None
+    betrieb.email = form["email"] or None
+    betrieb.telefon = form["telefon"] or None
+    betrieb.aktiv = form["aktiv"]
+    db.session.commit()
+    flash("Betrieb gespeichert.", "success")
+    return redirect(url_for("admin.betrieb_liste"))
+
+
+@bp.route("/betriebe/<int:betrieb_id>/loeschen", methods=["GET", "POST"])
+def betrieb_loeschen(betrieb_id):
+    betrieb = Betrieb.query.get_or_404(betrieb_id)
+
+    if betrieb.schueler:
+        flash(
+            f"'{betrieb.name}' kann nicht gelöscht werden – {len(betrieb.schueler)} "
+            f"SuS sind noch zugeordnet. Erst dort den Betrieb entfernen oder wechseln.",
+            "error",
+        )
+        return redirect(url_for("admin.betrieb_liste"))
+
+    if request.method != "POST":
+        warnung = f"Der Betrieb '{betrieb.name}' wird gelöscht. Das lässt sich nicht rückgängig machen."
+        return render_template("admin/betrieb_loeschen.html", betrieb=betrieb, warnung=warnung)
+
+    if request.form.get("bestaetigung", "").strip() != betrieb.name:
+        flash("Bestätigung stimmte nicht – nichts gelöscht.", "error")
+        return redirect(url_for("admin.betrieb_liste"))
+
+    name = betrieb.name
+    db.session.delete(betrieb)
+    db.session.commit()
+    flash(f"Betrieb '{name}' wurde gelöscht.", "success")
+    return redirect(url_for("admin.betrieb_liste"))

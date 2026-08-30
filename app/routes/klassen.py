@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.lernfeld_service import lernfelder_aus_vorlagen
-from app.models import Bildungsgang, Klasse
+from app.models import Bildungsgang, Klasse, Lernfeld, Notenereintrag
 
 bp = Blueprint("klassen", __name__, url_prefix="/klassen")
 
@@ -78,4 +78,35 @@ def neu():
         f"Klasse '{bezeichnung}' angelegt" + (f" mit {anzahl} Lernfeld(ern)." if anzahl else "."),
         "success",
     )
+    return redirect(url_for("klassen.liste"))
+
+
+@bp.route("/<int:klasse_id>/loeschen", methods=["GET", "POST"])
+def loeschen(klasse_id):
+    klasse = Klasse.query.get_or_404(klasse_id)
+    anzahl_noten = (
+        Notenereintrag.query.join(Lernfeld)
+        .filter(Lernfeld.klasse_id == klasse.id)
+        .count()
+    )
+
+    if request.method != "POST":
+        warnung = (
+            f"Die Klasse {klasse.bezeichnung} wird mit {len(klasse.lernfelder)} "
+            f"Lernfeld(ern), {anzahl_noten} Noteneinträgen und allen "
+            f"SuS-Zuordnungen gelöscht. Die SuS selbst bleiben erhalten. "
+            f"Das lässt sich nicht rückgängig machen."
+        )
+        return render_template(
+            "klassen/loeschen.html", klasse=klasse, warnung=warnung,
+        )
+
+    if request.form.get("bestaetigung", "").strip() != klasse.bezeichnung:
+        flash("Bestätigung stimmte nicht – nichts gelöscht.", "error")
+        return redirect(url_for("klassen.liste"))
+
+    bezeichnung = klasse.bezeichnung
+    db.session.delete(klasse)  # Lernfelder (+ Noten/Gewichtungen) und Zuordnungen per Cascade
+    db.session.commit()
+    flash(f"Klasse '{bezeichnung}' wurde gelöscht.", "success")
     return redirect(url_for("klassen.liste"))

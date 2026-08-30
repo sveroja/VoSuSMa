@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Notenübersicht – {{ lernfeld.label }} – {{ klasse.bezeichnung }} – VoSuSMa{% endblock %}
+{% block content_class %}content--wide{% endblock %}
 
 {% macro notezelle(v, cls="") -%}
     {%- if v is none -%}
@@ -12,7 +13,10 @@
 {% block content %}
     <div class="page-header">
         <h1>Notenübersicht</h1>
-        <a class="button button--secondary" href="{{ url_for('lernfelder.liste', klasse_id=klasse.id) }}">← Lernfelder</a>
+        <div class="table-actions">
+            <a class="button button--secondary" href="{{ url_for('lernfelder.klausur_import', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">CSV-Import</a>
+            <a class="button button--secondary" href="{{ url_for('lernfelder.liste', klasse_id=klasse.id) }}">← Lernfelder</a>
+        </div>
     </div>
     <p class="subtitle">{{ klasse.bezeichnung }} – {{ lernfeld.label }}</p>
 

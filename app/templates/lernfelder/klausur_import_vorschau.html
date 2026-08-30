@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}CSV-Import Vorschau – {{ lernfeld.label }} – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>CSV-Import – Vorschau</h1>
+        <a class="button button--secondary" href="{{ url_for('lernfelder.klausur_import', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">← Neu wählen</a>
+    </div>
+    <p class="subtitle">
+        {{ klasse.bezeichnung }} – {{ lernfeld.label }} – Kategorie: {{ kategorie.bezeichnung }}
+        ({{ "Punkte" if ist_punkte else "direkte Note" }})
+    </p>
+
+    <table>
+        <thead>
+            <tr><th>Nachname</th><th>Vorname</th><th>Wert</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for z in zeilen %}
+                <tr>
+                    <td>{{ z.nachname }}</td>
+                    <td>{{ z.vorname }}</td>
+                    <td>{{ z.wert }}</td>
+                    <td>{% if z.status == 'ok' %}<span class="badge badge--aktiv">wird übernommen</span>{% else %}<span class="badge badge--inaktiv">{{ z.status }}</span>{% endif %}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <form method="post" action="{{ url_for('lernfelder.klausur_import_anlegen', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}" style="margin-top:1.5rem">
+        {% for name, wert in hidden.items() %}
+            {% if name == 'tsv' %}
+                <textarea name="tsv" hidden>{{ wert }}</textarea>
+            {% else %}
+                <input type="hidden" name="{{ name }}" value="{{ wert }}">
+            {% endif %}
+        {% endfor %}
+        <div class="form__actions">
+            <button type="submit" {% if not anzahl_ok %}disabled{% endif %}>{{ anzahl_ok }} Einträge übernehmen</button>
+            <a class="button button--secondary" href="{{ url_for('lernfelder.uebersicht', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}

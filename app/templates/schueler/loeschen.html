@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "_partials/loesch_bestaetigung.html" import loesch_bestaetigung %}
+{% block title %}{{ schueler.vorname }} {{ schueler.nachname }} löschen – VoSuSMa{% endblock %}
+{% block content %}
+    {{ loesch_bestaetigung(
+        titel="SuS löschen",
+        warnung=warnung,
+        wort=bestaetigung_wort,
+        action=url_for('schueler.loeschen', schueler_id=schueler.id),
+        abbrechen_url=url_for('schueler.detail', schueler_id=schueler.id),
+        knopf_text=knopf,
+        hidden={'klasse_id': klasse.id} if (nur_zuordnung and klasse) else {}) }}
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Betriebe – Admin – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Ausbildungsbetriebe</h1>
+        <div class="table-actions">
+            <a class="button button--secondary" href="{{ url_for('admin.index') }}">← Admin</a>
+            <a class="button" href="{{ url_for('admin.betrieb_neu') }}">+ Betrieb</a>
+        </div>
+    </div>
+    <p class="hinweis">
+        Betriebe lassen sich einzelnen SuS zuordnen (SuS-Formular). Die
+        Betriebs-E-Mail erscheint dann in der SuS-Liste.
+    </p>
+
+    {% if betriebe %}
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Ansprechpartner</th><th>E-Mail</th><th>Telefon</th><th>SuS</th><th>Status</th><th>Aktionen</th></tr>
+            </thead>
+            <tbody>
+                {% for b in betriebe %}
+                    <tr>
+                        <td>{{ b.name }}</td>
+                        <td>{{ b.ansprechpartner or "–" }}</td>
+                        <td>{% if b.email %}<a href="mailto:{{ b.email }}">{{ b.email }}</a>{% else %}–{% endif %}</td>
+                        <td>{{ b.telefon or "–" }}</td>
+                        <td>{{ b.anzahl_schueler }}</td>
+                        <td><span class="badge badge--{{ 'aktiv' if b.aktiv else 'inaktiv' }}">{{ 'aktiv' if b.aktiv else 'inaktiv' }}</span></td>
+                        <td class="table-actions">
+                            <a href="{{ url_for('admin.betrieb_bearbeiten', betrieb_id=b.id) }}">bearbeiten</a>
+                            <a href="{{ url_for('admin.betrieb_loeschen', betrieb_id=b.id) }}">löschen</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="empty-state">Noch keine Betriebe angelegt.</p>
+    {% endif %}
+{% endblock %}

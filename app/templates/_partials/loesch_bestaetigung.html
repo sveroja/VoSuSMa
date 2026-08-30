@@ -1,0 +1,48 @@
+{# Wiederverwendbare Löschbestätigung (PVE-Style): exaktes Wort eintippen,
+   Submit bleibt gesperrt bis zur Übereinstimmung. Server prüft zusätzlich.
+
+   Aufruf:
+   {% from "_partials/loesch_bestaetigung.html" import loesch_bestaetigung %}
+   {{ loesch_bestaetigung(
+        titel="Klasse löschen",
+        warnung="Die Klasse EH24a und alle 42 Noteneinträge werden gelöscht.",
+        wort="EH24a",
+        action=url_for('klassen.loeschen', klasse_id=klasse.id),
+        abbrechen_url=url_for('klassen.liste'),
+        knopf_text="Klasse endgültig löschen",
+        hidden={}) }}
+#}
+{% macro loesch_bestaetigung(titel, warnung, wort, action, abbrechen_url, knopf_text="Endgültig löschen", hidden={}) %}
+    <h1>{{ titel }}</h1>
+    <ul class="flashes">
+        <li class="flash flash--error">{{ warnung }}</li>
+    </ul>
+    <form method="post" action="{{ action }}" class="form">
+        {% for name, wert in hidden.items() %}
+            <input type="hidden" name="{{ name }}" value="{{ wert }}">
+        {% endfor %}
+        <div class="form__field">
+            <label for="loesch-wort">
+                Zum Bestätigen <strong>{{ wort }}</strong> eintippen
+            </label>
+            <input type="text" id="loesch-wort" name="bestaetigung" autocomplete="off"
+                   spellcheck="false" data-soll="{{ wort }}">
+        </div>
+        <div class="form__actions">
+            <button type="submit" id="loesch-knopf" disabled>{{ knopf_text }}</button>
+            <a class="button button--secondary" href="{{ abbrechen_url }}">Abbrechen</a>
+        </div>
+    </form>
+    <script>
+        (function () {
+            var feld = document.getElementById('loesch-wort');
+            var knopf = document.getElementById('loesch-knopf');
+            function pruefen() {
+                knopf.disabled = feld.value.trim() !== feld.dataset.soll;
+            }
+            feld.addEventListener('input', pruefen);
+            pruefen();
+            feld.focus();
+        })();
+    </script>
+{% endmacro %}

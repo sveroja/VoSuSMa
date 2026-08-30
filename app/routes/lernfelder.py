@@ -13,6 +13,7 @@ from app.models import (
     SchuelerKlasse,
 )
 from app.gewichtung import gewichte_aus_formular
+from app.importe import parse_klausur_liste
 from app.noten_logik import gesamtnote, kategorie_durchschnitt, note_aus_eintrag, parse_note
 from app.stammdaten import STANDARD_NOTENKATEGORIEN
 
@@ -459,6 +460,160 @@ def kategorie_speichern(klasse_id, lernfeld_id, kategorie_id):
     if not (geaendert or geloescht or angelegt or fehler):
         flash("Keine Änderungen.", "success")
     return zurueck
+
+
+def _wert_pruefen(rohwert, ist_punkte):
+    """rohwert (dt. Komma erlaubt) -> float | Fehlertext. Bei Note via parse_note,
+    bei Punkten als float >= 0."""
+    roh = (rohwert or "").strip().replace(",", ".")
+    try:
+        if ist_punkte:
+            v = float(roh)
+            if v < 0:
+                return None, "Punkte < 0"
+            return v, None
+        return parse_note(roh), None
+    except ValueError:
+        return None, ("keine Zahl" if ist_punkte else "keine Note 1,0–6,0")
+
+
+@bp.route("/<int:lernfeld_id>/klausur-import", methods=["GET", "POST"])
+def klausur_import(klasse_id, lernfeld_id):
+    """Noten/Punkte einer Kategorie aus einer CSV (Nachname;Vorname;Wert)
+    einlesen - Zuordnung der SuS über Namensabgleich in der Klasse."""
+    klasse = Klasse.query.get_or_404(klasse_id)
+    lernfeld = _lernfeld_der_klasse(klasse_id, lernfeld_id)
+    kategorien = _bulk_kategorien(lernfeld)
+
+    def _render_form(**extra):
+        return render_template(
+            "lernfelder/klausur_import.html", klasse=klasse, lernfeld=lernfeld,
+            kategorien=kategorien, heute=date.today().isoformat(), **extra,
+        )
+
+    if request.method != "POST":
+        return _render_form()
+
+    erlaubte = {g.kategorie_id for g in lernfeld.gewichtungen}
+    kat_roh = request.form.get("kategorie_id", "")
+    kategorie = Notenkategorie.query.get(int(kat_roh)) if kat_roh.isdigit() else None
+    if kategorie is None or kategorie.id not in erlaubte:
+        flash("Bitte eine gültige Kategorie wählen.", "error")
+        return _render_form(), 400
+
+    ist_punkte = _ist_punkte_kategorie(kategorie)
+    max_punkte = None
+    if ist_punkte:
+        try:
+            max_punkte = float(request.form.get("max_punkte", "").strip().replace(",", "."))
+        except ValueError:
+            max_punkte = 0
+        if max_punkte <= 0:
+            flash("Bitte eine gültige Maximalpunktzahl (> 0) angeben.", "error")
+            return _render_form(), 400
+
+    try:
+        datum = date.fromisoformat(request.form.get("datum", "").strip())
+    except ValueError:
+        datum = date.today()
+    bezeichnung = request.form.get("bezeichnung", "").strip() or None
+
+    datei = request.files.get("csv_datei")
+    if not datei or not datei.filename:
+        flash("Bitte eine Datei auswählen.", "error")
+        return _render_form(), 400
+
+    zeilen, warnungen = parse_klausur_liste(datei.read())
+    for w in warnungen:
+        flash(w, "error")
+    if not zeilen:
+        return _render_form(), 400
+
+    aktive = _aktive_schueler(klasse)
+    nach_name = {(s.nachname.lower(), s.vorname.lower()): s for s in aktive}
+
+    treffer = []  # (schueler, wert_roh, wert_num)
+    for z in zeilen:
+        if z["fehler"]:
+            z["status"] = "fehler: " + ", ".join(z["fehler"])
+            continue
+        s = nach_name.get((z["nachname"].lower(), z["vorname"].lower()))
+        if s is None:
+            z["status"] = "kein SuS-Treffer in der Klasse"
+            continue
+        num, wfehler = _wert_pruefen(z["wert"], ist_punkte)
+        if wfehler:
+            z["status"] = f"ungültig ({wfehler})"
+            continue
+        z["status"] = "ok"
+        z["schueler"] = s
+        treffer.append((s, z["wert"], num))
+
+    tsv = "schueler_id\twert\n" + "\n".join(f"{s.id}\t{roh}" for s, roh, _ in treffer)
+
+    return render_template(
+        "lernfelder/klausur_import_vorschau.html",
+        klasse=klasse, lernfeld=lernfeld, kategorie=kategorie, ist_punkte=ist_punkte,
+        zeilen=zeilen, anzahl_ok=len(treffer),
+        hidden={
+            "kategorie_id": kategorie.id,
+            "modus": "punkte" if ist_punkte else "note",
+            "max_punkte": max_punkte or "",
+            "datum": datum.isoformat(),
+            "bezeichnung": bezeichnung or "",
+            "tsv": tsv,
+        },
+    )
+
+
+@bp.route("/<int:lernfeld_id>/klausur-import/anlegen", methods=["POST"])
+def klausur_import_anlegen(klasse_id, lernfeld_id):
+    lernfeld = _lernfeld_der_klasse(klasse_id, lernfeld_id)
+
+    erlaubte = {g.kategorie_id for g in lernfeld.gewichtungen}
+    kat_roh = request.form.get("kategorie_id", "")
+    kategorie = Notenkategorie.query.get(int(kat_roh)) if kat_roh.isdigit() else None
+    if kategorie is None or kategorie.id not in erlaubte:
+        flash("Ungültige Kategorie.", "error")
+        return redirect(url_for("lernfelder.uebersicht", klasse_id=klasse_id, lernfeld_id=lernfeld_id))
+
+    ist_punkte = request.form.get("modus") == "punkte"
+    max_roh = request.form.get("max_punkte", "").strip().replace(",", ".")
+    max_punkte = float(max_roh) if max_roh else None
+    try:
+        datum = date.fromisoformat(request.form.get("datum", "").strip())
+    except ValueError:
+        datum = date.today()
+    bezeichnung = request.form.get("bezeichnung", "").strip() or None
+
+    gespeichert = 0
+    for roh in request.form.get("tsv", "").split("\n")[1:]:
+        if not roh.strip():
+            continue
+        teile = roh.split("\t")
+        if len(teile) != 2 or not teile[0].isdigit():
+            continue
+        num, wfehler = _wert_pruefen(teile[1], ist_punkte)
+        if wfehler:
+            continue
+        eintrag = Notenereintrag(
+            schueler_id=int(teile[0]), lernfeld_id=lernfeld.id, kategorie_id=kategorie.id,
+            datum=datum, bezeichnung=bezeichnung,
+        )
+        if ist_punkte:
+            eintrag.erreichte_punkte = num
+            eintrag.max_punkte = max_punkte
+        else:
+            eintrag.note_direkt = num
+        db.session.add(eintrag)
+        gespeichert += 1
+
+    if gespeichert:
+        db.session.commit()
+        flash(f"{gespeichert} Noteneinträge aus der CSV übernommen.", "success")
+    else:
+        flash("Nichts übernommen.", "error")
+    return redirect(url_for("lernfelder.uebersicht", klasse_id=klasse_id, lernfeld_id=lernfeld_id))
 
 
 @bp.route("/<int:lernfeld_id>/noten-bulk", methods=["POST"])
