@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ schueler.vorname }} {{ schueler.nachname }} – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>{{ schueler.vorname }} {{ schueler.nachname }}</h1>
+        {% if klasse %}
+            <span class="badge badge--aktiv">{{ klasse.bezeichnung }}</span>
+        {% endif %}
+    </div>
+
+    {% set infos = [] %}
+    {% if schueler.geschlecht %}{% set _ = infos.append({'w':'weiblich','m':'männlich','d':'divers'}[schueler.geschlecht]) %}{% endif %}
+    {% if schueler.geburtsdatum %}{% set _ = infos.append('geb. ' ~ schueler.geburtsdatum.strftime('%d.%m.%Y')) %}{% endif %}
+    {% if schueler.email %}{% set _ = infos.append(schueler.email) %}{% endif %}
+    {% if schueler.betriebs_email %}{% set _ = infos.append(schueler.betriebs_email ~ ' (Betrieb)') %}{% endif %}
+    {% if infos %}<p class="subtitle">{{ infos | join(' · ') }}</p>{% endif %}
+
+    {% if not klasse %}
+        <p class="empty-state">Aktuell keiner Klasse zugeordnet.</p>
+    {% elif not lernfelder_uebersicht %}
+        <p class="empty-state">Für {{ klasse.bezeichnung }} sind noch keine Lernfelder angelegt.</p>
+    {% else %}
+        {% for eintrag in lernfelder_uebersicht %}
+            <section class="lernfeld-block">
+                <h2>{{ eintrag.lernfeld.label }}</h2>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kategorie</th>
+                            <th>Gewicht</th>
+                            <th>Einträge</th>
+                            <th>Durchschnitt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for kat in eintrag.kategorien %}
+                            <tr>
+                                <td>{{ kat.kategorie.bezeichnung }}</td>
+                                <td>{{ (kat.gewicht * 100) | round | int }} %</td>
+                                <td>
+                                    {% if kat.eintraege %}
+                                        <ul class="noten-liste">
+                                            {% for noteneintrag, note in kat.eintraege %}
+                                                <li>
+                                                    {{ noteneintrag.datum.strftime('%d.%m.%Y') }}
+                                                    {% if noteneintrag.bezeichnung %}– {{ noteneintrag.bezeichnung }}{% endif %}:
+                                                    <strong>{{ "%.1f"|format(note) if note is not none else "–" }}</strong>
+                                                    <form method="post" action="{{ url_for('noten.loeschen', noteneintrag_id=noteneintrag.id) }}"
+                                                          class="inline-form" onsubmit="return confirm('Noteneintrag wirklich löschen?');">
+                                                        <button type="submit" class="action-link">löschen</button>
+                                                    </form>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <span class="empty-state">–</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.1f"|format(kat.durchschnitt) if kat.durchschnitt is not none else "–" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <p class="gesamtnote">
+                    Gesamtnote:
+                    <strong>{{ "%.1f"|format(eintrag.gesamtnote) if eintrag.gesamtnote is not none else "noch keine Note" }}</strong>
+                </p>
+            </section>
+        {% endfor %}
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,12 @@
+# Zeilenenden reproduzierbar halten (Windows-Primaerprojekt, aber Repo LF).
+* text=auto eol=lf
+
+# Diese muessen ihr Zeilenende behalten:
+*.bat        text eol=crlf
+*.command    text eol=lf
+*.sh         text eol=lf
+
+# Binaerdateien nie anfassen:
+*.sqlite3    binary
+*.ods        binary
+*.png        binary

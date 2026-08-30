@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}SuS importieren – {{ klasse.bezeichnung }} – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>SuS importieren – {{ klasse.bezeichnung }}</h1>
+    <p class="hinweis">
+        Export aus dem Schulverwaltungssystem (Untis „LessonStudentList", TAB-getrennt).
+        Erwartete Spalten: <code>Langname</code>, <code>Vorname</code>, optional
+        <code>Geschlecht</code>, <code>Eintrittsdatum</code>, <code>Austrittsdatum</code>,
+        <code>E-Mail Adresse</code>. Die Spalte „Klasse" im Export wird ignoriert –
+        importiert wird in <strong>{{ klasse.bezeichnung }}</strong>.
+    </p>
+
+    <form method="post" class="form" enctype="multipart/form-data">
+        <div class="form__field">
+            <label for="csv_datei">CSV-/TSV-Datei</label>
+            <input type="file" id="csv_datei" name="csv_datei" accept=".csv,.txt,.tsv,text/csv" required>
+        </div>
+        <div class="form__actions">
+            <button type="submit">Vorschau</button>
+            <a class="button button--secondary" href="{{ url_for('schueler.liste', klasse_id=klasse.id) }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}

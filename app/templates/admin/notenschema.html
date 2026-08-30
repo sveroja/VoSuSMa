@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}IHK-Notenschlüssel – Admin – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>IHK-Notenschlüssel</h1>
+        <a class="button button--secondary" href="{{ url_for('admin.index') }}">← Admin</a>
+    </div>
+
+    {% if not schema %}
+        <p class="empty-state">Kein aktives Notenschema gefunden.</p>
+    {% else %}
+        <p class="hinweis">
+            Aktives Schema: <strong>{{ schema.name }}</strong>. Prozent → Note (eine
+            Nachkommastelle). Diese Zuordnung ist fest vorgegeben und wird hier nur
+            angezeigt, nicht bearbeitet.
+        </p>
+        <div class="matrix-wrap">
+            <table class="matrix schema-tabelle">
+                <thead>
+                    <tr><th>Prozent</th><th>Note</th></tr>
+                </thead>
+                <tbody>
+                    {% for s in stufen %}
+                        <tr>
+                            <td>{% if s.von_prozent == s.bis_prozent %}{{ s.von_prozent }} %{% else %}{{ s.von_prozent }}–{{ s.bis_prozent }} %{% endif %}</td>
+                            <td>{{ "%.1f"|format(s.note) }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Backup – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Backup</h1>
+        {% if backup_ordner %}
+            <form method="post" action="{{ url_for('backup.jetzt') }}">
+                <button type="submit">Jetzt sichern</button>
+            </form>
+        {% endif %}
+    </div>
+
+    {% if not backup_ordner %}
+        <p class="empty-state">
+            Kein Backup-Ordner konfiguriert. Setze die Umgebungsvariable
+            <code>VOSUSMA_BACKUP_DIR</code> auf einen Ordner, den OneDrive oder
+            Nextcloud mitsynct, und starte VoSuSMa neu.
+        </p>
+    {% else %}
+        <p class="hinweis">
+            Ziel-Ordner: <code>{{ backup_ordner }}</code><br>
+            Beim Start wird automatisch gesichert, wenn der letzte Snapshot älter als
+            ~20 Stunden ist. Snapshot = konsistente Kopie per <code>VACUUM INTO</code>.
+        </p>
+
+        {% if snapshots %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Snapshot</th>
+                        <th>Zeitpunkt</th>
+                        <th>Größe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in snapshots %}
+                        <tr>
+                            <td>{{ s.name }}</td>
+                            <td>{{ s.zeit.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td>{{ s.groesse_kb }} KB</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="empty-state">Noch keine Snapshots im Ordner.</p>
+        {% endif %}
+
+        <h2>Wiederherstellen</h2>
+        <p class="hinweis">
+            VoSuSMa stoppen, den gewünschten Snapshot aus dem Backup-Ordner nach
+            <code>instance/{{ db_name }}.sqlite3</code> kopieren (vorhandene Datei
+            ersetzen), VoSuSMa neu starten.
+        </p>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Note eintragen – {{ schueler.vorname }} {{ schueler.nachname }}{% endblock %}
+{% block content %}
+    <h1>Note eintragen</h1>
+    <p class="subtitle">{{ schueler.vorname }} {{ schueler.nachname }} – {{ lernfeld.label }}</p>
+
+    <form method="post" class="form" id="noten-form">
+        <div class="form__field">
+            <label for="kategorie_id">Kategorie</label>
+            <select id="kategorie_id" name="kategorie_id" required>
+                <option value="">– bitte wählen –</option>
+                {% for kategorie in kategorien %}
+                    <option value="{{ kategorie.id }}" {% if form.get('kategorie_id') == kategorie.id|string %}selected{% endif %}>
+                        {{ kategorie.bezeichnung }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form__field">
+            <label for="datum">Datum</label>
+            <input type="date" id="datum" name="datum" value="{{ form.get('datum', '') }}" required>
+        </div>
+        <div class="form__field">
+            <label for="bezeichnung">Bezeichnung (optional)</label>
+            <input type="text" id="bezeichnung" name="bezeichnung" value="{{ form.get('bezeichnung', '') }}"
+                   placeholder="z.B. KA1, Hausaufgabe 15.10.">
+        </div>
+
+        <div class="form__field">
+            <label>Eingabeart</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="eingabeart" value="direkt"
+                           {% if form.get('eingabeart', 'direkt') == 'direkt' %}checked{% endif %} onchange="toggleEingabeart()">
+                    Direkte Note
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="eingabeart" value="punkte"
+                           {% if form.get('eingabeart') == 'punkte' %}checked{% endif %} onchange="toggleEingabeart()">
+                    Punkte
+                </label>
+            </div>
+        </div>
+
+        <div class="form__field" id="feld-note-direkt">
+            <label for="note_direkt">Note</label>
+            <input type="text" id="note_direkt" name="note_direkt" value="{{ form.get('note_direkt', '') }}" placeholder="z.B. 2,3">
+        </div>
+
+        <div class="form__field" id="feld-punkte">
+            <label for="erreichte_punkte">Erreichte Punkte</label>
+            <input type="text" id="erreichte_punkte" name="erreichte_punkte" value="{{ form.get('erreichte_punkte', '') }}">
+            <label for="max_punkte">Maximale Punkte</label>
+            <input type="text" id="max_punkte" name="max_punkte" value="{{ form.get('max_punkte', '') }}">
+        </div>
+
+        <div class="form__actions">
+            <button type="submit">Note speichern</button>
+            <a class="button button--secondary" href="{{ url_for('schueler.detail', schueler_id=schueler.id) }}">Abbrechen</a>
+        </div>
+    </form>
+
+    <script>
+        function toggleEingabeart() {
+            var istDirekt = document.querySelector('input[name="eingabeart"]:checked').value === 'direkt';
+            document.getElementById('feld-note-direkt').style.display = istDirekt ? '' : 'none';
+            document.getElementById('feld-punkte').style.display = istDirekt ? 'none' : '';
+        }
+        toggleEingabeart();
+    </script>
+{% endblock %}

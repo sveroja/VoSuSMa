@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Klasse anlegen – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>Klasse anlegen</h1>
+
+    {% if not bildungsgaenge %}
+        <p class="empty-state">
+            Erst im <a href="{{ url_for('admin.index') }}">Admin-Bereich</a> einen aktiven
+            Bildungsgang (mit Lernfeld-Katalog) anlegen.
+        </p>
+    {% else %}
+    <form method="post" class="form" style="max-width: 560px;">
+        <div class="form__field">
+            <label for="bezeichnung">Bezeichnung</label>
+            <input type="text" id="bezeichnung" name="bezeichnung" value="{{ bezeichnung }}"
+                   placeholder="z.B. BFS22a" required maxlength="50">
+        </div>
+        <div class="form__field">
+            <label for="bildungsgang_id">Bildungsgang</label>
+            <select id="bildungsgang_id" name="bildungsgang_id" required onchange="bgWechsel()">
+                <option value="">– bitte wählen –</option>
+                {% for bg in bildungsgaenge %}
+                    <option value="{{ bg.id }}" {% if bildungsgang_id == bg.id %}selected{% endif %}>{{ bg.bezeichnung }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <fieldset class="form__fieldset">
+            <legend>Lernfelder für diese Klasse</legend>
+            <p class="hinweis">Nur die angehakten Lernfelder werden aus dem Katalog übernommen.</p>
+            {% for bg in bildungsgaenge %}
+                <div class="vorlage-gruppe" data-bg="{{ bg.id }}" {% if bildungsgang_id != bg.id %}hidden{% endif %}>
+                    {% if bg.lernfeldvorlagen %}
+                        <p>
+                            <button type="button" class="button button--secondary button--small" onclick="vorlagenAlle({{ bg.id }}, true)">alle</button>
+                            <button type="button" class="button button--secondary button--small" onclick="vorlagenAlle({{ bg.id }}, false)">keine</button>
+                        </p>
+                        {% for v in bg.vorlagen_sortiert %}
+                            <label class="radio-label">
+                                <input type="checkbox" name="vorlage" value="{{ v.id }}"
+                                       {% if gewaehlte_vorlagen is not defined or (v.id|string) in gewaehlte_vorlagen %}checked{% endif %}>
+                                {{ v.label }}
+                            </label>
+                        {% endfor %}
+                    {% else %}
+                        <p class="empty-state">Dieser Bildungsgang hat noch keine Lernfeldvorlagen.</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </fieldset>
+
+        <div class="form__actions">
+            <button type="submit">Klasse anlegen</button>
+            <a class="button button--secondary" href="{{ url_for('klassen.liste') }}">Abbrechen</a>
+        </div>
+    </form>
+
+    <script>
+        function bgWechsel() {
+            var id = document.getElementById('bildungsgang_id').value;
+            document.querySelectorAll('.vorlage-gruppe').forEach(function (g) {
+                g.hidden = g.getAttribute('data-bg') !== id;
+            });
+        }
+        function vorlagenAlle(bgId, an) {
+            document.querySelectorAll('.vorlage-gruppe[data-bg="' + bgId + '"] input[type=checkbox]')
+                .forEach(function (c) { c.checked = an; });
+        }
+        bgWechsel();
+    </script>
+    {% endif %}
+{% endblock %}

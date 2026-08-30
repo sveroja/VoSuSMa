@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}SuS anlegen – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>SuS anlegen</h1>
+    <form method="post" class="form">
+        <div class="form__field">
+            <label for="vorname">Vorname</label>
+            <input type="text" id="vorname" name="vorname" value="{{ form.get('vorname', '') }}" required maxlength="80">
+        </div>
+        <div class="form__field">
+            <label for="nachname">Nachname</label>
+            <input type="text" id="nachname" name="nachname" value="{{ form.get('nachname', '') }}" required maxlength="80">
+        </div>
+        <div class="form__field">
+            <label for="geburtsdatum">Geburtsdatum</label>
+            <input type="date" id="geburtsdatum" name="geburtsdatum" value="{{ form.get('geburtsdatum', '') }}">
+        </div>
+        <div class="form__field">
+            <label for="geschlecht">Geschlecht</label>
+            <select id="geschlecht" name="geschlecht">
+                {% for wert, text in geschlecht_wahl %}
+                    <option value="{{ wert }}" {% if form.get('geschlecht', '') == wert %}selected{% endif %}>{{ text }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form__field">
+            <label for="email">E-Mail (privat)</label>
+            <input type="email" id="email" name="email" value="{{ form.get('email', '') }}" maxlength="255">
+        </div>
+        <div class="form__field">
+            <label for="betriebs_email">E-Mail (Betrieb)</label>
+            <input type="email" id="betriebs_email" name="betriebs_email" value="{{ form.get('betriebs_email', '') }}" maxlength="255">
+        </div>
+        <div class="form__field">
+            <label for="klasse_id">Klasse</label>
+            <select id="klasse_id" name="klasse_id" required>
+                <option value="">– bitte wählen –</option>
+                {% for klasse in klassen %}
+                    <option value="{{ klasse.id }}" {% if form.get('klasse_id') == klasse.id|string %}selected{% endif %}>
+                        {{ klasse.bezeichnung }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form__actions">
+            <button type="submit">Anlegen</button>
+            <a class="button button--secondary" href="{{ url_for('schueler.liste') }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Schülerinnen und Schüler – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Schülerinnen und Schüler</h1>
+        <div class="table-actions">
+            {% if gewaehlte_klasse_id %}
+                <a class="button button--secondary" href="{{ url_for('schueler.importieren', klasse_id=gewaehlte_klasse_id) }}">CSV-Import</a>
+            {% endif %}
+            <a class="button" href="{{ url_for('schueler.neu') }}">+ SuS anlegen</a>
+        </div>
+    </div>
+
+    <form method="get" class="filter-form">
+        <label for="klasse_id">Klasse</label>
+        <select name="klasse_id" id="klasse_id" onchange="this.form.submit()">
+            <option value="">Alle Klassen</option>
+            {% for klasse in klassen %}
+                <option value="{{ klasse.id }}" {% if klasse.id == gewaehlte_klasse_id %}selected{% endif %}>
+                    {{ klasse.bezeichnung }}
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+
+    {% if schueler_liste %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Nachname</th>
+                    <th>Vorname</th>
+                    <th>Klasse</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for schueler, klasse in schueler_liste %}
+                    <tr>
+                        <td><a href="{{ url_for('schueler.detail', schueler_id=schueler.id) }}">{{ schueler.nachname }}</a></td>
+                        <td>{{ schueler.vorname }}</td>
+                        <td>{{ klasse.bezeichnung if klasse else "–" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="empty-state">Keine SuS gefunden.</p>
+    {% endif %}
+{% endblock %}

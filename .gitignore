@@ -1,0 +1,50 @@
+# --- Daten & Datenschutz -----------------------------------------------------
+# instance/ enthaelt prod.sqlite3 mit echten Schuelerdaten - NIEMALS committen.
+instance/
+
+# Lokale Import-/Beispieldateien koennen echte SuS-Daten enthalten (z.B. der
+# Untis-Export). Nichts davon gehoert ins Repo.
+/*.csv
+LessonStudentList*
+/import/
+/beispieldaten/
+
+# DB-Dateien und Backup-Snapshots grundsaetzlich ueberall ignorieren
+*.sqlite3
+*.sqlite
+*.db
+
+# Internes Arbeitsdokument (Excel-Analyse). Bei Bedarf bewusst mit
+# `git add -f importTool.ods` aufnehmen.
+/*.ods
+
+# --- Konfiguration / Secrets ------------------------------------------------
+# .env liegt pro Ordner (z.B. APP_ENV=prod im Prod-Ordner) und bleibt lokal.
+.env
+.env.*
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Editor / OS ----------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---------------------------------------------------------------
+*.log

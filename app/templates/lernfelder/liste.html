@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Lernfelder – {{ klasse.bezeichnung }} – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Lernfelder – {{ klasse.bezeichnung }}</h1>
+        <a class="button" href="{{ url_for('lernfelder.neu', klasse_id=klasse.id) }}">+ Lernfeld anlegen</a>
+    </div>
+
+    {% if lernfelder %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Nr.</th>
+                    <th>Lernfeld</th>
+                    <th>Gewichtung</th>
+                    <th>Noten</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lernfeld in lernfelder %}
+                    <tr>
+                        <td>{{ lernfeld.nummer if lernfeld.nummer is not none else "–" }}</td>
+                        <td>{{ lernfeld.name }}</td>
+                        <td>
+                            {% for gewichtung in lernfeld.gewichtungen %}{{ gewichtung.kategorie.bezeichnung }}: {{ (gewichtung.gewicht * 100)|round|int }}%{% if not loop.last %}, {% endif %}{% endfor %}
+                        </td>
+                        <td>{{ anzahl_noten[lernfeld.id] }}</td>
+                        <td class="table-actions">
+                            <a class="button button--small" href="{{ url_for('lernfelder.uebersicht', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">Notenübersicht</a>
+                            <a href="{{ url_for('lernfelder.bearbeiten', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">bearbeiten</a>
+                            <form method="post"
+                                  action="{{ url_for('lernfelder.loeschen', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}"
+                                  onsubmit="return confirm('Lernfeld „{{ lernfeld.label }}“ und alle {{ anzahl_noten[lernfeld.id] }} zugehörigen Noteneinträge wirklich löschen?');">
+                                <button type="submit" class="action-link">löschen</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="empty-state">Noch keine Lernfelder angelegt.</p>
+    {% endif %}
+{% endblock %}

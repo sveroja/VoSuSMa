@@ -1,0 +1,58 @@
+{# Erwartet im Kontext: kategorien (Notenkategorie-Liste), gewichte ({id: prozent}).
+   Der Submit-Button des umschliessenden Formulars braucht class="gewicht-submit". #}
+<fieldset class="form__fieldset">
+    <legend>Gewichtung der Notenkategorien</legend>
+    <p class="gewicht-presets">
+        <button type="button" class="button button--secondary button--small"
+                data-preset='{"muendlich_sonstige": 40, "klassenarbeit": 60, "abgabe": 0}'>Standard 40 / 60 / 0</button>
+        <button type="button" class="button button--secondary button--small"
+                data-preset='{"muendlich_sonstige": 50, "klassenarbeit": 50, "abgabe": 0}'>50 / 50 / 0</button>
+        <button type="button" class="button button--secondary button--small"
+                data-preset='{"muendlich_sonstige": 100, "klassenarbeit": 0, "abgabe": 0}'>100 % mündlich</button>
+    </p>
+    {% for kategorie in kategorien %}
+        <div class="form__field">
+            <label for="gewicht_{{ kategorie.id }}">{{ kategorie.bezeichnung }} (%)</label>
+            <input type="number" id="gewicht_{{ kategorie.id }}" name="gewicht_{{ kategorie.id }}"
+                   class="gewicht-input" data-schluessel="{{ kategorie.schluessel }}"
+                   min="0" max="100" step="1" value="{{ gewichte.get(kategorie.id, 0) }}">
+        </div>
+    {% endfor %}
+    <p class="gewicht-summe-zeile">Summe: <span id="gewicht-summe">0 %</span></p>
+</fieldset>
+
+<script>
+    (function () {
+        var inputs = Array.prototype.slice.call(document.querySelectorAll('.gewicht-input'));
+        var summeEl = document.getElementById('gewicht-summe');
+        var submitBtn = document.querySelector('.gewicht-submit');
+
+        function wert(inp) {
+            var n = parseFloat((inp.value || '').replace(',', '.'));
+            return isNaN(n) ? 0 : n;
+        }
+
+        function aktualisiere() {
+            var summe = inputs.reduce(function (a, i) { return a + wert(i); }, 0);
+            summeEl.textContent = (Math.round(summe * 10) / 10) + ' %';
+            var ok = Math.abs(summe - 100) < 0.5;
+            summeEl.classList.toggle('gewicht-summe--fehler', !ok);
+            if (submitBtn) { submitBtn.disabled = !ok; }
+        }
+
+        inputs.forEach(function (i) { i.addEventListener('input', aktualisiere); });
+
+        document.querySelectorAll('[data-preset]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var preset = JSON.parse(btn.getAttribute('data-preset'));
+                inputs.forEach(function (i) {
+                    var s = i.getAttribute('data-schluessel');
+                    if (preset[s] !== undefined) { i.value = preset[s]; }
+                });
+                aktualisiere();
+            });
+        });
+
+        aktualisiere();
+    })();
+</script>

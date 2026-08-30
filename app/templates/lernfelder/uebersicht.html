@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Notenübersicht – {{ lernfeld.label }} – {{ klasse.bezeichnung }} – VoSuSMa{% endblock %}
+
+{% macro notezelle(v, cls="") -%}
+    {%- if v is none -%}
+        <td class="{{ cls }}">–</td>
+    {%- else -%}
+        <td class="{{ cls }} {{ 'note--bad' if v >= 5.5 else 'note--warn' if v >= 4.5 else '' }}">{{ "%.1f"|format(v) }}</td>
+    {%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+    <div class="page-header">
+        <h1>Notenübersicht</h1>
+        <a class="button button--secondary" href="{{ url_for('lernfelder.liste', klasse_id=klasse.id) }}">← Lernfelder</a>
+    </div>
+    <p class="subtitle">{{ klasse.bezeichnung }} – {{ lernfeld.label }}</p>
+
+    {% if not schueler_liste %}
+        <p class="empty-state">In dieser Klasse sind aktuell keine SuS aktiv.</p>
+    {% else %}
+        <p class="erfassen-buttons">
+            {% for k in bulk_kategorien %}
+                <button type="button" class="button"
+                        onclick="bulkOeffnen({{ k.id }}, '{{ k.schluessel }}', '{{ k.bezeichnung }}')">
+                    + {{ k.bezeichnung }}
+                </button>
+            {% endfor %}
+        </p>
+
+        <div class="matrix-wrap">
+            <table class="matrix">
+                <thead>
+                    <tr>
+                        <th>Nachname</th>
+                        <th>Vorname</th>
+                        {% for sp in spalten %}
+                            <th class="{{ 'kat-schnitt' if sp.typ == 'schnitt' }}">{{ sp.titel }}</th>
+                        {% endfor %}
+                        <th class="gesamt">Gesamt</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for zeile in zeilen %}
+                        <tr>
+                            <td><a href="{{ url_for('schueler.detail', schueler_id=zeile.schueler.id) }}">{{ zeile.schueler.nachname }}</a></td>
+                            <td>{{ zeile.schueler.vorname }}</td>
+                            {% for sp in spalten %}
+                                {{ notezelle(zeile.zellen[sp.key], "kat-schnitt" if sp.typ == "schnitt" else "") }}
+                            {% endfor %}
+                            {{ notezelle(zeile.gesamt, "gesamt") }}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="hinweis">
+            Gewichtung: {% for bezeichnung, prozent in gewicht_info %}{{ bezeichnung }} {{ prozent }}%{% if not loop.last %} · {% endif %}{% endfor %}.
+            Gesamtnote aus den Kategorie-Schnitten (Abgabe zählt bei Gewicht&nbsp;0 nicht mit). Markiert: ab 4,5 gelb, ab 5,5 rot.
+        </p>
+
+        <dialog id="bulk-dialog" class="bulk-dialog">
+            <form method="post" action="{{ url_for('lernfelder.noten_bulk', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">
+                <input type="hidden" name="kategorie_id" id="bulk-kategorie-id">
+                <h2 id="bulk-titel">Noten erfassen</h2>
+                <p class="subtitle">{{ klasse.bezeichnung }} – {{ lernfeld.label }}</p>
+                <div class="bulk-kopf">
+                    <label>Erfassen als
+                        <select name="modus" id="bulk-modus">
+                            <option value="note">direkte Note</option>
+                            <option value="punkte">Punkte</option>
+                        </select>
+                    </label>
+                    <label id="bulk-maxpunkte-feld" hidden>Max. Punkte
+                        <input type="text" inputmode="decimal" name="max_punkte" autocomplete="off" placeholder="z.B. 40">
+                    </label>
+                    <label id="bulk-reihenfolge-feld" hidden>Reihenfolge
+                        <select id="bulk-reihenfolge">
+                            <option value="alpha">alphabetisch</option>
+                            <option value="zufall">zufällig</option>
+                        </select>
+                    </label>
+                    <label>Datum
+                        <input type="date" name="datum" value="{{ heute }}">
+                    </label>
+                    <label>Zweck / Bezeichnung
+                        <input type="text" name="bezeichnung" placeholder="z.B. Mitarbeit 14.10. / KA 1" autocomplete="off">
+                    </label>
+                </div>
+                <div class="bulk-table-wrap">
+                    <table class="matrix">
+                        <thead>
+                            <tr><th>SuS</th><th id="bulk-wert-kopf">Note</th></tr>
+                        </thead>
+                        <tbody id="bulk-tbody">
+                            {% for s in schueler_liste %}
+                                <tr data-idx="{{ loop.index0 }}">
+                                    <td>{{ s.nachname }}, {{ s.vorname }}</td>
+                                    <td><input type="text" inputmode="decimal" name="wert_{{ s.id }}"
+                                               class="bulk-note" autocomplete="off" placeholder="–"></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="form__actions">
+                    <button type="submit">Speichern</button>
+                    <button type="button" class="button button--secondary" onclick="document.getElementById('bulk-dialog').close()">Abbrechen</button>
+                </div>
+            </form>
+        </dialog>
+
+        <script>
+            var bulkDialog = document.getElementById('bulk-dialog');
+            var bulkModus = document.getElementById('bulk-modus');
+            var bulkMaxFeld = document.getElementById('bulk-maxpunkte-feld');
+            var bulkReihenfolgeFeld = document.getElementById('bulk-reihenfolge-feld');
+            var bulkReihenfolge = document.getElementById('bulk-reihenfolge');
+            var bulkWertKopf = document.getElementById('bulk-wert-kopf');
+            var bulkKategorieId = document.getElementById('bulk-kategorie-id');
+            var bulkTitel = document.getElementById('bulk-titel');
+            var bulkTbody = document.getElementById('bulk-tbody');
+
+            function bulkModusAnwenden() {
+                var punkte = bulkModus.value === 'punkte';
+                bulkMaxFeld.hidden = !punkte;
+                bulkWertKopf.textContent = punkte ? 'Punkte' : 'Note';
+                // Reihenfolge-Wahl nur bei direkter Note (mündlich) sinnvoll
+                bulkReihenfolgeFeld.hidden = punkte;
+            }
+
+            function bulkSortieren() {
+                var rows = Array.prototype.slice.call(bulkTbody.querySelectorAll('tr'));
+                if (bulkReihenfolge.value === 'zufall') {
+                    for (var i = rows.length - 1; i > 0; i--) {
+                        var j = Math.floor(Math.random() * (i + 1));
+                        bulkTbody.insertBefore(rows[j], rows[i].nextSibling);
+                        var t = rows[i]; rows[i] = rows[j]; rows[j] = t;
+                    }
+                } else {
+                    rows.sort(function (a, b) { return (+a.dataset.idx) - (+b.dataset.idx); })
+                        .forEach(function (r) { bulkTbody.appendChild(r); });
+                }
+            }
+
+            bulkModus.addEventListener('change', bulkModusAnwenden);
+            bulkReihenfolge.addEventListener('change', bulkSortieren);
+
+            function bulkOeffnen(kategorieId, schluessel, bezeichnung) {
+                bulkKategorieId.value = kategorieId;
+                bulkTitel.textContent = bezeichnung + ' erfassen';
+                bulkModus.value = schluessel === 'muendlich_sonstige' ? 'note' : 'punkte';
+                bulkModusAnwenden();
+                bulkReihenfolge.value = 'alpha';
+                bulkSortieren();
+                bulkDialog.querySelectorAll('.bulk-note').forEach(function (i) { i.value = ''; });
+                bulkDialog.showModal();
+                var erstes = bulkDialog.querySelector('.bulk-note');
+                if (erstes) { erstes.focus(); }
+            }
+
+            // Enter springt zum nächsten Wertfeld (in aktueller Anzeige-Reihenfolge).
+            bulkDialog.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter' || !e.target.classList.contains('bulk-note')) { return; }
+                e.preventDefault();
+                var felder = Array.prototype.slice.call(bulkTbody.querySelectorAll('.bulk-note'));
+                var i = felder.indexOf(e.target);
+                var ziel = felder[i + 1] || bulkDialog.querySelector('button[type="submit"]');
+                ziel.focus();
+            });
+        </script>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ bg.bezeichnung }} – Admin – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>{{ bg.bezeichnung }}</h1>
+        <div class="table-actions">
+            <a class="button button--secondary" href="{{ url_for('admin.bildungsgang_bearbeiten', bildungsgang_id=bg.id) }}">Bearbeiten</a>
+            <a class="button" href="{{ url_for('admin.vorlage_neu', bildungsgang_id=bg.id) }}">+ Lernfeldvorlage</a>
+        </div>
+    </div>
+    {% if not bg.aktiv %}<p class="hinweis">Dieser Bildungsgang ist inaktiv und beim Klasse-Anlegen nicht wählbar.</p>{% endif %}
+
+    <h2>Lernfeld-Katalog</h2>
+    {% if bg.lernfeldvorlagen %}
+        <table>
+            <thead>
+                <tr><th>Nr.</th><th>Name</th><th>Gewichtung</th><th>Aktionen</th></tr>
+            </thead>
+            <tbody>
+                {% for v in bg.vorlagen_sortiert %}
+                    <tr>
+                        <td>{{ v.nummer if v.nummer is not none else '–' }}</td>
+                        <td>{{ v.name }}</td>
+                        <td>{% for g in v.gewichtungen %}{{ g.kategorie.bezeichnung }}: {{ (g.gewicht * 100) | round | int }}%{% if not loop.last %}, {% endif %}{% endfor %}</td>
+                        <td class="table-actions">
+                            <a href="{{ url_for('admin.vorlage_bearbeiten', vorlage_id=v.id) }}">bearbeiten</a>
+                            <form method="post" action="{{ url_for('admin.vorlage_loeschen', vorlage_id=v.id) }}"
+                                  onsubmit="return confirm('Vorlage „{{ v.label }}“ löschen? Bestehende Klassen bleiben unverändert.');">
+                                <button type="submit" class="action-link">löschen</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="empty-state">Noch keine Lernfeldvorlagen.</p>
+    {% endif %}
+
+    <p style="margin-top:2rem">
+        {% if not bg.klassen %}
+            <form method="post" action="{{ url_for('admin.bildungsgang_loeschen', bildungsgang_id=bg.id) }}"
+                  class="inline-form" onsubmit="return confirm('Bildungsgang „{{ bg.bezeichnung }}“ mit Katalog löschen?');">
+                <button type="submit" class="action-link">Bildungsgang löschen</button>
+            </form>
+        {% else %}
+            <span class="hinweis">{{ bg.klassen | length }} Klasse(n) nutzen diesen Bildungsgang – löschen nicht möglich.</span>
+        {% endif %}
+    </p>
+{% endblock %}

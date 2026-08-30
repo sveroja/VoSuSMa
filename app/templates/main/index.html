@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Start – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>Übersicht</h1>
+    <div class="cards">
+        <div class="card">
+            <span class="card__value">{{ anzahl_klassen }}</span>
+            <span class="card__label">aktive Klassen</span>
+        </div>
+        <div class="card">
+            <span class="card__value">{{ anzahl_schueler }}</span>
+            <span class="card__label">SuS</span>
+        </div>
+    </div>
+
+    <nav class="quick-links">
+        <a class="button" href="{{ url_for('klassen.liste') }}">Klassen verwalten</a>
+        <a class="button button--secondary" href="{{ url_for('klassen.neu') }}">Klasse anlegen</a>
+    </nav>
+{% endblock %}

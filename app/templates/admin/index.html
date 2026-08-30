@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Admin – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Admin – Bildungsgänge</h1>
+        <div class="table-actions">
+            <a class="button button--secondary" href="{{ url_for('admin.notenschema') }}">IHK-Notenschlüssel</a>
+            <a class="button" href="{{ url_for('admin.bildungsgang_neu') }}">+ Bildungsgang</a>
+        </div>
+    </div>
+    <p class="hinweis">
+        Bildungsgänge tragen den zentralen Lernfeld-Katalog. Beim Klasse-Anlegen
+        werden die gewählten Lernfelder daraus in die Klasse kopiert.
+    </p>
+
+    {% if bildungsgaenge %}
+        <table>
+            <thead>
+                <tr><th>Bildungsgang</th><th>Lernfeldvorlagen</th><th>Klassen</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {% for bg in bildungsgaenge %}
+                    <tr>
+                        <td><a href="{{ url_for('admin.bildungsgang_detail', bildungsgang_id=bg.id) }}">{{ bg.bezeichnung }}</a></td>
+                        <td>{{ bg.lernfeldvorlagen | length }}</td>
+                        <td>{{ bg.klassen | length }}</td>
+                        <td><span class="badge badge--{{ 'aktiv' if bg.aktiv else 'inaktiv' }}">{{ 'aktiv' if bg.aktiv else 'inaktiv' }}</span></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="empty-state">Noch keine Bildungsgänge angelegt.</p>
+    {% endif %}
+{% endblock %}

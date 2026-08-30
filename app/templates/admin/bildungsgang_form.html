@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ titel }} – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>{{ titel }}</h1>
+    <form method="post" class="form">
+        <div class="form__field">
+            <label for="bezeichnung">Berufsbezeichnung</label>
+            <input type="text" id="bezeichnung" name="bezeichnung" value="{{ form.get('bezeichnung', '') }}"
+                   required maxlength="120" placeholder="z.B. Kaufmann/-frau im Einzelhandel">
+        </div>
+        {% if 'aktiv' in form %}
+            <div class="form__field">
+                <label class="radio-label">
+                    <input type="checkbox" name="aktiv" {% if form.get('aktiv') %}checked{% endif %}> aktiv (bei „Klasse anlegen" wählbar)
+                </label>
+            </div>
+        {% endif %}
+        <div class="form__actions">
+            <button type="submit">Speichern</button>
+            <a class="button button--secondary" href="{{ url_for('admin.index') }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ titel }} – {{ bg.bezeichnung }} – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>{{ titel }}</h1>
+    <p class="subtitle">{{ bg.bezeichnung }}</p>
+
+    <form method="post" class="form">
+        <div class="form__field">
+            <label for="nummer">Lernfeld-Nummer (optional)</label>
+            <input type="number" id="nummer" name="nummer" value="{{ form.get('nummer', '') }}"
+                   min="1" step="1" placeholder="z.B. 3 – leer bei allg. Fächern">
+        </div>
+        <div class="form__field">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" value="{{ form.get('name', '') }}" required maxlength="100"
+                   placeholder="z.B. Waren annehmen und lagern">
+        </div>
+
+        {% include "_partials/gewicht_fieldset.html" %}
+
+        <div class="form__actions">
+            <button type="submit" class="gewicht-submit">Speichern</button>
+            <a class="button button--secondary" href="{{ url_for('admin.bildungsgang_detail', bildungsgang_id=bg.id) }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}
