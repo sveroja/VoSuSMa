@@ -11,7 +11,26 @@ bp = Blueprint("klassen", __name__, url_prefix="/klassen")
 @bp.route("/")
 def liste():
     klassen = Klasse.query.order_by(Klasse.bezeichnung).all()
-    return render_template("klassen/liste.html", klassen=klassen)
+
+    gewaehlte_id = request.args.get("klasse_id", type=int)
+    gewaehlte = None
+    if gewaehlte_id:
+        gewaehlte = next((k for k in klassen if k.id == gewaehlte_id), None)
+    if gewaehlte is None and klassen:
+        gewaehlte = klassen[0]
+
+    lernfelder = []
+    anzahl_noten = {}
+    if gewaehlte is not None:
+        lernfelder = sorted(gewaehlte.lernfelder, key=lambda lf: lf.sortkey)
+        anzahl_noten = {
+            lf.id: Notenereintrag.query.filter_by(lernfeld_id=lf.id).count() for lf in lernfelder
+        }
+
+    return render_template(
+        "klassen/liste.html", klassen=klassen, gewaehlte=gewaehlte,
+        lernfelder=lernfelder, anzahl_noten=anzahl_noten,
+    )
 
 
 @bp.route("/neu", methods=["GET", "POST"])
@@ -78,7 +97,7 @@ def neu():
         f"Klasse '{bezeichnung}' angelegt" + (f" mit {anzahl} Lernfeld(ern)." if anzahl else "."),
         "success",
     )
-    return redirect(url_for("klassen.liste"))
+    return redirect(url_for("klassen.liste", klasse_id=klasse.id))
 
 
 @bp.route("/<int:klasse_id>/loeschen", methods=["GET", "POST"])
@@ -103,10 +122,10 @@ def loeschen(klasse_id):
 
     if request.form.get("bestaetigung", "").strip() != klasse.bezeichnung:
         flash("Bestätigung stimmte nicht – nichts gelöscht.", "error")
-        return redirect(url_for("klassen.liste"))
+        return redirect(url_for("admin.klassen_liste"))
 
     bezeichnung = klasse.bezeichnung
     db.session.delete(klasse)  # Lernfelder (+ Noten/Gewichtungen) und Zuordnungen per Cascade
     db.session.commit()
     flash(f"Klasse '{bezeichnung}' wurde gelöscht.", "success")
-    return redirect(url_for("klassen.liste"))
+    return redirect(url_for("admin.klassen_liste"))

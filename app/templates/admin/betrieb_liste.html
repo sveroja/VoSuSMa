@@ -3,10 +3,7 @@
 {% block content %}
     <div class="page-header">
         <h1>Ausbildungsbetriebe</h1>
-        <div class="table-actions">
-            <a class="button button--secondary" href="{{ url_for('admin.index') }}">← Admin</a>
-            <a class="button" href="{{ url_for('admin.betrieb_neu') }}">+ Betrieb</a>
-        </div>
+        <a class="button" href="{{ url_for('admin.betrieb_neu') }}">+ Betrieb</a>
     </div>
     <p class="hinweis">
         Betriebe lassen sich einzelnen SuS zuordnen (SuS-Formular). Die

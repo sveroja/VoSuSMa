@@ -154,7 +154,7 @@ def neu(klasse_id):
     db.session.commit()
 
     flash(f"Lernfeld '{lernfeld.label}' wurde angelegt.", "success")
-    return redirect(url_for("lernfelder.liste", klasse_id=klasse.id))
+    return redirect(url_for("klassen.liste", klasse_id=klasse.id))
 
 
 @bp.route("/<int:lernfeld_id>/bearbeiten", methods=["GET", "POST"])
@@ -197,7 +197,7 @@ def bearbeiten(klasse_id, lernfeld_id):
     db.session.commit()
 
     flash(f"Lernfeld '{lernfeld.label}' wurde gespeichert.", "success")
-    return redirect(url_for("lernfelder.liste", klasse_id=klasse.id))
+    return redirect(url_for("klassen.liste", klasse_id=klasse.id))
 
 
 @bp.route("/<int:lernfeld_id>/loeschen", methods=["POST"])
@@ -207,7 +207,7 @@ def loeschen(klasse_id, lernfeld_id):
     db.session.delete(lernfeld)  # Gewichtungen + Noteneinträge hängen per Cascade dran
     db.session.commit()
     flash(f"Lernfeld '{label}' wurde mit allen Noteneinträgen gelöscht.", "success")
-    return redirect(url_for("lernfelder.liste", klasse_id=klasse_id))
+    return redirect(url_for("klassen.liste", klasse_id=klasse_id))
 
 
 @bp.route("/<int:lernfeld_id>/uebersicht")

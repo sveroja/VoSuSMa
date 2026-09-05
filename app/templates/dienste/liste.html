@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Klassendienste – {{ klasse.bezeichnung }} – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Klassendienste – {{ klasse.bezeichnung }}</h1>
+        <div class="table-actions">
+            <a class="button button--secondary" href="{{ url_for('dienste.drucken', klasse_id=klasse.id) }}" target="_blank">Drucken / PDF</a>
+            <a class="button button--secondary" href="{{ url_for('klassen.liste', klasse_id=klasse.id) }}">← Klasse</a>
+        </div>
+    </div>
+
+    {% if not schueler %}
+        <p class="empty-state">In dieser Klasse sind aktuell keine SuS aktiv.</p>
+    {% else %}
+        <form method="post" action="{{ url_for('dienste.generieren', klasse_id=klasse.id) }}" class="bulk-kopf">
+            <label>Automatisch auffüllen von
+                <input type="date" name="von" value="{{ heute }}" required>
+            </label>
+            <label>bis
+                <input type="date" name="bis" required>
+            </label>
+            <button type="submit" style="align-self:flex-end">Diensttage einplanen</button>
+        </form>
+        <p class="hinweis">
+            Überspringt automatisch Wochenenden, Ferien (<a href="{{ url_for('admin.ferien_liste') }}">Ferienkalender</a>)
+            und – falls für diese Klasse gepflegt – Nicht-Block-Wochen
+            (<a href="{{ url_for('admin.blockplan') }}">Blockplanung</a>). Reihum, fair nach bisheriger
+            Diensthäufigkeit. Bereits belegte Tage bleiben unverändert.
+        </p>
+
+        <details style="margin-bottom:1.5rem">
+            <summary>Wer hatte wie oft Dienst? ({{ uebersicht | length }} SuS)</summary>
+            <div class="dienst-chips">
+                {% for s, anzahl in uebersicht %}
+                    <span class="dienst-chip">{{ s.nachname }}, {{ s.vorname }} <strong>{{ anzahl }}</strong></span>
+                {% endfor %}
+            </div>
+        </details>
+
+        <form method="post" action="{{ url_for('dienste.speichern', klasse_id=klasse.id) }}">
+            <div class="matrix-wrap">
+                <table class="matrix">
+                    <thead>
+                        <tr><th>Datum</th><th>SuS 1</th><th>SuS 2</th><th>löschen</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for e in eintraege %}
+                            <tr>
+                                <td>{{ e.datum.strftime('%d.%m.%Y') }}</td>
+                                <td>
+                                    <select name="s1_{{ e.id }}">
+                                        <option value="">–</option>
+                                        {% for s in schueler %}
+                                            <option value="{{ s.id }}" {% if s.id == e.schueler1_id %}selected{% endif %}>{{ s.nachname }}, {{ s.vorname }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="s2_{{ e.id }}">
+                                        <option value="">–</option>
+                                        {% for s in schueler %}
+                                            <option value="{{ s.id }}" {% if s.id == e.schueler2_id %}selected{% endif %}>{{ s.nachname }}, {{ s.vorname }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td><input type="checkbox" name="del_{{ e.id }}"></td>
+                            </tr>
+                        {% endfor %}
+                        {% for i in leere_zeilen %}
+                            <tr>
+                                <td><input type="date" name="neu_datum_{{ i }}"></td>
+                                <td>
+                                    <select name="neu_s1_{{ i }}">
+                                        <option value="">–</option>
+                                        {% for s in schueler %}
+                                            <option value="{{ s.id }}">{{ s.nachname }}, {{ s.vorname }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="neu_s2_{{ i }}">
+                                        <option value="">–</option>
+                                        {% for s in schueler %}
+                                            <option value="{{ s.id }}">{{ s.nachname }}, {{ s.vorname }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td class="empty-state">neu</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="form__actions" style="margin-top:1rem">
+                <button type="submit">Speichern</button>
+            </div>
+        </form>
+    {% endif %}
+
+    <h2 style="margin-top:2.5rem">Hinweistext (für den Ausdruck)</h2>
+    <form method="post" action="{{ url_for('dienste.hinweis_speichern', klasse_id=klasse.id) }}" class="form" style="max-width:none">
+        <div class="form__field">
+            <textarea name="hinweis" rows="8" style="font-family:inherit;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius)">{{ hinweis }}</textarea>
+        </div>
+        <div class="form__actions">
+            <button type="submit">Hinweistext speichern</button>
+        </div>
+    </form>
+{% endblock %}

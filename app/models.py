@@ -131,12 +131,21 @@ class Klasse(db.Model):
     bezeichnung = db.Column(db.String(50), nullable=False, unique=True)  # z.B. "BFS22a"
     bildungsgang_id = db.Column(db.Integer, db.ForeignKey("bildungsgaenge.id"), nullable=False)
     aktiv = db.Column(db.Boolean, default=True, nullable=False)
+    # Freitext fuer die Klassendienste-Druckseite (Aufgabenbeschreibung). Leer -> Standardtext.
+    dienst_hinweis = db.Column(db.Text, nullable=True)
 
     bildungsgang = db.relationship("Bildungsgang", back_populates="klassen")
     schueler_zuordnungen = db.relationship(
         "SchuelerKlasse", back_populates="klasse", cascade="all, delete-orphan"
     )
     lernfelder = db.relationship("Lernfeld", back_populates="klasse", cascade="all, delete-orphan")
+    dienste = db.relationship(
+        "Klassendienst", back_populates="klasse", cascade="all, delete-orphan",
+        order_by="Klassendienst.datum",
+    )
+    blockwochen = db.relationship(
+        "Blockwoche", back_populates="klasse", cascade="all, delete-orphan"
+    )
 
     @property
     def anzahl_schueler(self):
@@ -306,3 +315,76 @@ class Notenereintrag(db.Model):
     schueler = db.relationship("Schueler")
     lernfeld = db.relationship("Lernfeld", back_populates="noteneintraege")
     kategorie = db.relationship("Notenkategorie")
+
+
+class Ferienzeitraum(db.Model):
+    """Manuell gepflegter Ferienkalender (Schulferien + bewegliche Ferientage).
+    Bewusst ohne externen API-/ICS-Abgleich (siehe CLAUDE.md - keine externen
+    Netzwerkaufrufe) - stattdessen Datei-Import (app/ferien_import.py), der eine
+    einmal heruntergeladene .ics-Datei rein lokal einliest. Treibt sowohl die
+    Blockplanung (Kopfbaender) als auch den Klassendienst-Generator (Tage
+    ueberspringen)."""
+    __tablename__ = "ferienzeitraeume"
+
+    id = db.Column(db.Integer, primary_key=True)
+    bezeichnung = db.Column(db.String(120), nullable=False)  # z.B. "Sommerferien", "Beweglicher Ferientag"
+    von = db.Column(db.Date, nullable=False)
+    bis = db.Column(db.Date, nullable=False)  # inklusive, von == bis fuer Einzeltage
+
+    def __repr__(self):
+        return f"<Ferienzeitraum {self.bezeichnung} {self.von}-{self.bis}>"
+
+
+class Blockwoche(db.Model):
+    """Blockplanung: markiert eine Kalenderwoche, in der eine Klasse in der
+    Schule ist (duale Ausbildung im Blockunterricht - nicht jede Woche).
+    Zeilen existieren nur fuer 'anwesend'-Wochen; eine Klasse ohne jede Zeile in
+    einem Schuljahr gilt als durchgehend woechentlich anwesend (Normalfall)."""
+    __tablename__ = "blockwochen"
+
+    id = db.Column(db.Integer, primary_key=True)
+    klasse_id = db.Column(db.Integer, db.ForeignKey("klassen.id"), nullable=False)
+    schuljahr = db.Column(db.Integer, nullable=False)  # Startjahr, z.B. 2026 fuer 2026/2027
+    kw = db.Column(db.Integer, nullable=False)  # ISO-Kalenderwoche 1-53
+    iso_jahr = db.Column(db.Integer, nullable=False)  # ISO-Jahr der KW (Jahreswechsel bei KW1/52/53)
+
+    klasse = db.relationship("Klasse", back_populates="blockwochen")
+
+    __table_args__ = (
+        db.UniqueConstraint("klasse_id", "iso_jahr", "kw", name="uq_blockwoche_klasse_kw"),
+    )
+
+
+class Klassendienst(db.Model):
+    """Ein Tag Klassendienst (zu zweit) - Reihum-Rotation aus der Excel-Vorlage.
+    schueler2 optional (Dienst auch mit nur einer Person moeglich)."""
+    __tablename__ = "klassendienste"
+
+    id = db.Column(db.Integer, primary_key=True)
+    klasse_id = db.Column(db.Integer, db.ForeignKey("klassen.id"), nullable=False)
+    datum = db.Column(db.Date, nullable=False)
+    schueler1_id = db.Column(db.Integer, db.ForeignKey("schueler.id"), nullable=True)
+    schueler2_id = db.Column(db.Integer, db.ForeignKey("schueler.id"), nullable=True)
+
+    klasse = db.relationship("Klasse", back_populates="dienste")
+    schueler1 = db.relationship("Schueler", foreign_keys=[schueler1_id])
+    schueler2 = db.relationship("Schueler", foreign_keys=[schueler2_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("klasse_id", "datum", name="uq_klassendienst_klasse_datum"),
+    )
+
+
+class DashboardLink(db.Model):
+    """Frei pflegbare Link-Kachel auf der Startseite (Schulalltag-Links wie
+    WebUntis, Stundenplan, Intranet, ...)."""
+    __tablename__ = "dashboard_links"
+
+    id = db.Column(db.Integer, primary_key=True)
+    titel = db.Column(db.String(80), nullable=False)
+    url = db.Column(db.String(500), nullable=False)
+    icon = db.Column(db.String(8), nullable=True)  # optionales Emoji
+    reihenfolge = db.Column(db.Integer, nullable=False, default=0)
+
+    def __repr__(self):
+        return f"<DashboardLink {self.titel}>"

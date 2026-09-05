@@ -3,41 +3,68 @@
 {% block content %}
     <div class="page-header">
         <h1>Klassen</h1>
-        <a class="button" href="{{ url_for('klassen.neu') }}">+ Klasse anlegen</a>
+        <a class="button button--secondary" href="{{ url_for('admin.klassen_liste') }}">Klassen verwalten</a>
     </div>
 
-    {% if klassen %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Bezeichnung</th>
-                    <th>Bildungsgang</th>
-                    <th>Anzahl SuS</th>
-                    <th>Status</th>
-                    <th>Aktionen</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for klasse in klassen %}
-                    <tr>
-                        <td>{{ klasse.bezeichnung }}</td>
-                        <td>{{ klasse.bildungsgang.bezeichnung if klasse.bildungsgang else "–" }}</td>
-                        <td>{{ klasse.anzahl_schueler }}</td>
-                        <td>
-                            <span class="badge badge--{{ 'aktiv' if klasse.aktiv else 'inaktiv' }}">
-                                {{ 'aktiv' if klasse.aktiv else 'inaktiv' }}
-                            </span>
-                        </td>
-                        <td class="table-actions">
-                            <a href="{{ url_for('schueler.liste', klasse_id=klasse.id) }}">SuS</a>
-                            <a href="{{ url_for('lernfelder.liste', klasse_id=klasse.id) }}">Lernfelder</a>
-                            <a href="{{ url_for('klassen.loeschen', klasse_id=klasse.id) }}">löschen</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {% if not klassen %}
+        <p class="empty-state">
+            Noch keine Klassen angelegt –
+            <a href="{{ url_for('admin.klassen_liste') }}">im Admin-Bereich</a> anlegen.
+        </p>
     {% else %}
-        <p class="empty-state">Noch keine Klassen angelegt.</p>
+        <nav class="tabs">
+            {% for klasse in klassen %}
+                <a class="tab {{ 'tab--aktiv' if gewaehlte and klasse.id == gewaehlte.id }}"
+                   href="{{ url_for('klassen.liste', klasse_id=klasse.id) }}">{{ klasse.bezeichnung }}</a>
+            {% endfor %}
+        </nav>
+
+        {% if gewaehlte %}
+            <div class="page-header">
+                <h2>Lernfelder – {{ gewaehlte.bezeichnung }}</h2>
+                <div class="table-actions">
+                    <a class="button button--secondary" href="{{ url_for('schueler.liste', klasse_id=gewaehlte.id) }}">SuS</a>
+                    <a class="button button--secondary" href="{{ url_for('dienste.liste', klasse_id=gewaehlte.id) }}">Klassendienste</a>
+                    <a class="button" href="{{ url_for('lernfelder.neu', klasse_id=gewaehlte.id) }}">+ Lernfeld anlegen</a>
+                </div>
+            </div>
+
+            {% if lernfelder %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nr.</th>
+                            <th>Lernfeld</th>
+                            <th>Gewichtung</th>
+                            <th>Noten</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lernfeld in lernfelder %}
+                            <tr>
+                                <td>{{ lernfeld.nummer if lernfeld.nummer is not none else "–" }}</td>
+                                <td>{{ lernfeld.name }}</td>
+                                <td>
+                                    {% for gewichtung in lernfeld.gewichtungen %}{{ gewichtung.kategorie.bezeichnung }}: {{ (gewichtung.gewicht * 100)|round|int }}%{% if not loop.last %}, {% endif %}{% endfor %}
+                                </td>
+                                <td>{{ anzahl_noten[lernfeld.id] }}</td>
+                                <td class="table-actions">
+                                    <a class="button button--small" href="{{ url_for('lernfelder.uebersicht', klasse_id=gewaehlte.id, lernfeld_id=lernfeld.id) }}">Notenübersicht</a>
+                                    <a href="{{ url_for('lernfelder.bearbeiten', klasse_id=gewaehlte.id, lernfeld_id=lernfeld.id) }}">bearbeiten</a>
+                                    <form method="post"
+                                          action="{{ url_for('lernfelder.loeschen', klasse_id=gewaehlte.id, lernfeld_id=lernfeld.id) }}"
+                                          onsubmit="return confirm('Lernfeld „{{ lernfeld.label }}“ und alle {{ anzahl_noten[lernfeld.id] }} zugehörigen Noteneinträge wirklich löschen?');">
+                                        <button type="submit" class="action-link">löschen</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="empty-state">Noch keine Lernfelder angelegt.</p>
+            {% endif %}
+        {% endif %}
     {% endif %}
 {% endblock %}

@@ -24,35 +24,37 @@
     </form>
 
     {% if schueler_liste %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Nachname</th>
-                    <th>Vorname</th>
-                    <th>Klasse</th>
-                    <th>Betrieb</th>
-                    <th>E-Mail (privat)</th>
-                    <th>E-Mail (Betrieb)</th>
-                    <th>Aktionen</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for schueler, klasse in schueler_liste %}
+        <div class="matrix-wrap">
+            <table>
+                <thead>
                     <tr>
-                        <td><a href="{{ url_for('schueler.detail', schueler_id=schueler.id) }}">{{ schueler.nachname }}</a></td>
-                        <td>{{ schueler.vorname }}</td>
-                        <td>{{ klasse.bezeichnung if klasse else "–" }}</td>
-                        <td>{{ schueler.betrieb.name if schueler.betrieb else "–" }}</td>
-                        <td>{% if schueler.email %}<a href="mailto:{{ schueler.email }}">{{ schueler.email }}</a>{% else %}–{% endif %}</td>
-                        <td>{% if schueler.betrieb_mail_anzeige %}<a href="mailto:{{ schueler.betrieb_mail_anzeige }}">{{ schueler.betrieb_mail_anzeige }}</a>{% else %}–{% endif %}</td>
-                        <td class="table-actions">
-                            <a href="{{ url_for('schueler.bearbeiten', schueler_id=schueler.id) }}">bearbeiten</a>
-                            <a href="{{ url_for('schueler.loeschen', schueler_id=schueler.id, klasse_id=klasse.id if klasse else None) }}">löschen</a>
-                        </td>
+                        <th>Nachname</th>
+                        <th>Vorname</th>
+                        <th>Klasse</th>
+                        <th>Betrieb</th>
+                        <th>E-Mail (privat)</th>
+                        <th>E-Mail (Betrieb)</th>
+                        <th>Aktionen</th>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% for schueler, klasse in schueler_liste %}
+                        <tr>
+                            <td><a href="{{ url_for('schueler.detail', schueler_id=schueler.id) }}">{{ schueler.nachname }}</a></td>
+                            <td>{{ schueler.vorname }}</td>
+                            <td>{{ klasse.bezeichnung if klasse else "–" }}</td>
+                            <td>{{ schueler.betrieb.name if schueler.betrieb else "–" }}</td>
+                            <td>{% if schueler.email %}<a href="mailto:{{ schueler.email }}">{{ schueler.email }}</a>{% else %}–{% endif %}</td>
+                            <td>{% if schueler.betrieb_mail_anzeige %}<a href="mailto:{{ schueler.betrieb_mail_anzeige }}">{{ schueler.betrieb_mail_anzeige }}</a>{% else %}–{% endif %}</td>
+                            <td class="table-actions">
+                                <a href="{{ url_for('schueler.bearbeiten', schueler_id=schueler.id) }}">bearbeiten</a>
+                                <a href="{{ url_for('schueler.loeschen', schueler_id=schueler.id, klasse_id=klasse.id if klasse else None) }}">löschen</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     {% else %}
         <p class="empty-state">Keine SuS gefunden.</p>
     {% endif %}

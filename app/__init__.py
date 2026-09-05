@@ -14,6 +14,7 @@ def create_app():
     from app.routes.klassen import bp as klassen_bp
     from app.routes.schueler import bp as schueler_bp
     from app.routes.lernfelder import bp as lernfelder_bp
+    from app.routes.dienste import bp as dienste_bp
     from app.routes.noten import bp as noten_bp
     from app.routes.backup import bp as backup_bp
     from app.routes.admin import bp as admin_bp
@@ -22,6 +23,7 @@ def create_app():
     app.register_blueprint(klassen_bp)
     app.register_blueprint(schueler_bp)
     app.register_blueprint(lernfelder_bp)
+    app.register_blueprint(dienste_bp)
     app.register_blueprint(noten_bp)
     app.register_blueprint(backup_bp)
     app.register_blueprint(admin_bp)

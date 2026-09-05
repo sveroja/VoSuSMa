@@ -1,10 +1,17 @@
+from datetime import date
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
+from app import kalender
 from app.extensions import db
+from app.ferien_import import parse_ics_ferien
 from app.gewichtung import gewichte_aus_formular
 from app.models import (
     Betrieb,
     Bildungsgang,
+    Blockwoche,
+    Ferienzeitraum,
+    Klasse,
     Lernfeldvorlage,
     Notenkategorie,
     Notenschema,
@@ -354,3 +361,178 @@ def betrieb_loeschen(betrieb_id):
     db.session.commit()
     flash(f"Betrieb '{name}' wurde gelöscht.", "success")
     return redirect(url_for("admin.betrieb_liste"))
+
+
+# --------------------------------------------------------------------------- #
+#  Klassen (anlegen/löschen sind Admin-Aufgaben; die Klassen-Seite selbst
+#  zeigt nur noch Reiter + Lernfelder, siehe routes/klassen.py)
+# --------------------------------------------------------------------------- #
+@bp.route("/klassen")
+def klassen_liste():
+    klassen = Klasse.query.order_by(Klasse.bezeichnung).all()
+    return render_template("admin/klassen_liste.html", klassen=klassen)
+
+
+# --------------------------------------------------------------------------- #
+#  Ferienkalender (manuell gepflegt - siehe CLAUDE.md: keine externen
+#  Netzwerkaufrufe. .ics-Import liest nur eine lokal hochgeladene Datei.)
+# --------------------------------------------------------------------------- #
+@bp.route("/ferien")
+def ferien_liste():
+    ferien = kalender.ferien_liste()
+    return render_template("admin/ferien_liste.html", ferien=ferien)
+
+
+@bp.route("/ferien/neu", methods=["GET", "POST"])
+def ferien_neu():
+    if request.method != "POST":
+        return render_template("admin/ferien_form.html", form={}, titel="Ferienzeitraum anlegen")
+
+    form, fehler, von, bis = _ferien_form_lesen()
+    if fehler:
+        for m in fehler:
+            flash(m, "error")
+        return render_template("admin/ferien_form.html", form=form, titel="Ferienzeitraum anlegen"), 400
+
+    db.session.add(Ferienzeitraum(bezeichnung=form["bezeichnung"], von=von, bis=bis))
+    db.session.commit()
+    flash(f"'{form['bezeichnung']}' wurde angelegt.", "success")
+    return redirect(url_for("admin.ferien_liste"))
+
+
+def _ferien_form_lesen():
+    form = {
+        "bezeichnung": request.form.get("bezeichnung", "").strip(),
+        "von": request.form.get("von", "").strip(),
+        "bis": request.form.get("bis", "").strip(),
+    }
+    fehler = []
+    if not form["bezeichnung"]:
+        fehler.append("Bezeichnung darf nicht leer sein.")
+    elif len(form["bezeichnung"]) > 120:
+        fehler.append("Bezeichnung darf maximal 120 Zeichen lang sein.")
+
+    von = bis = None
+    try:
+        von = date.fromisoformat(form["von"])
+    except ValueError:
+        fehler.append("'Von'-Datum ist ungültig.")
+    try:
+        bis = date.fromisoformat(form["bis"]) if form["bis"] else von
+    except ValueError:
+        fehler.append("'Bis'-Datum ist ungültig.")
+    if von and bis and bis < von:
+        fehler.append("'Bis' darf nicht vor 'Von' liegen.")
+    return form, fehler, von, bis
+
+
+@bp.route("/ferien/<int:ferien_id>/bearbeiten", methods=["GET", "POST"])
+def ferien_bearbeiten(ferien_id):
+    f = Ferienzeitraum.query.get_or_404(ferien_id)
+    if request.method != "POST":
+        form = {"bezeichnung": f.bezeichnung, "von": f.von.isoformat(), "bis": f.bis.isoformat()}
+        return render_template("admin/ferien_form.html", form=form, titel="Ferienzeitraum bearbeiten")
+
+    form, fehler, von, bis = _ferien_form_lesen()
+    if fehler:
+        for m in fehler:
+            flash(m, "error")
+        return render_template("admin/ferien_form.html", form=form, titel="Ferienzeitraum bearbeiten"), 400
+
+    f.bezeichnung, f.von, f.bis = form["bezeichnung"], von, bis
+    db.session.commit()
+    flash("Gespeichert.", "success")
+    return redirect(url_for("admin.ferien_liste"))
+
+
+@bp.route("/ferien/<int:ferien_id>/loeschen", methods=["POST"])
+def ferien_loeschen(ferien_id):
+    f = Ferienzeitraum.query.get_or_404(ferien_id)
+    db.session.delete(f)
+    db.session.commit()
+    flash(f"'{f.bezeichnung}' wurde gelöscht.", "success")
+    return redirect(url_for("admin.ferien_liste"))
+
+
+@bp.route("/ferien/import", methods=["GET", "POST"])
+def ferien_import():
+    if request.method != "POST":
+        return render_template("admin/ferien_import.html")
+
+    datei = request.files.get("ics_datei")
+    if not datei or not datei.filename:
+        flash("Bitte eine .ics-Datei auswählen.", "error")
+        return render_template("admin/ferien_import.html"), 400
+
+    termine, warnungen = parse_ics_ferien(datei.read())
+    for w in warnungen:
+        flash(w, "error")
+    if not termine:
+        return render_template("admin/ferien_import.html"), 400
+
+    angelegt = 0
+    for t in termine:
+        vorhanden = Ferienzeitraum.query.filter_by(
+            bezeichnung=t["bezeichnung"], von=t["von"], bis=t["bis"]
+        ).first()
+        if vorhanden:
+            continue
+        db.session.add(Ferienzeitraum(bezeichnung=t["bezeichnung"], von=t["von"], bis=t["bis"]))
+        angelegt += 1
+    db.session.commit()
+    flash(
+        f"{angelegt} Ferienzeitraum/-räume übernommen"
+        + (f", {len(termine) - angelegt} schon vorhanden übersprungen." if angelegt < len(termine) else "."),
+        "success",
+    )
+    return redirect(url_for("admin.ferien_liste"))
+
+
+# --------------------------------------------------------------------------- #
+#  Blockplanung: Klassen x Kalenderwochen, welche Wochen ist die Klasse da
+#  (Blockunterricht in der dualen Ausbildung). Speichern ersetzt komplett den
+#  Stand des gewaehlten Schuljahrs (einfacher als Diffing).
+# --------------------------------------------------------------------------- #
+@bp.route("/blockplan")
+def blockplan():
+    heute = date.today()
+    schuljahr = request.args.get("schuljahr", type=int) or kalender.schuljahr_von(heute)
+    klassen = Klasse.query.filter_by(aktiv=True).order_by(Klasse.bezeichnung).all()
+    wochen = kalender.wochen_mit_ferien_label(schuljahr)
+    kopfbaender = kalender.ferien_baender(wochen)
+
+    belegt = {
+        (bw.klasse_id, bw.iso_jahr, bw.kw)
+        for bw in Blockwoche.query.filter_by(schuljahr=schuljahr).all()
+    }
+
+    return render_template(
+        "admin/blockplan.html",
+        schuljahr=schuljahr, klassen=klassen, wochen=wochen, kopfbaender=kopfbaender, belegt=belegt,
+    )
+
+
+@bp.route("/blockplan/speichern", methods=["POST"])
+def blockplan_speichern():
+    schuljahr = request.form.get("schuljahr", type=int)
+    if schuljahr is None:
+        flash("Ungültiges Schuljahr.", "error")
+        return redirect(url_for("admin.blockplan"))
+
+    Blockwoche.query.filter_by(schuljahr=schuljahr).delete(synchronize_session=False)
+    angelegt = 0
+    for key in request.form:
+        if not key.startswith("zelle_"):
+            continue
+        try:
+            _, klasse_id, iso_jahr, kw = key.split("_")
+            db.session.add(Blockwoche(
+                klasse_id=int(klasse_id), schuljahr=schuljahr,
+                iso_jahr=int(iso_jahr), kw=int(kw),
+            ))
+            angelegt += 1
+        except ValueError:
+            continue
+    db.session.commit()
+    flash(f"Blockplanung {schuljahr}/{schuljahr + 1} gespeichert – {angelegt} Wochen markiert.", "success")
+    return redirect(url_for("admin.blockplan", schuljahr=schuljahr))

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Klassendienste {{ klasse.bezeichnung }} – Ausdruck{% endblock %}
+{% block content %}
+    <div class="table-actions no-print" style="margin-bottom:1.2rem">
+        <button type="button" onclick="window.print()">Drucken / Als PDF speichern</button>
+        <a class="button button--secondary" href="{{ url_for('dienste.liste', klasse_id=klasse.id) }}">← Bearbeiten</a>
+    </div>
+
+    <h1 class="druck-titel">Klassendienste {{ klasse.bezeichnung }}</h1>
+    <p class="druck-hinweistext">{{ hinweis }}</p>
+
+    {% if eintraege %}
+        <table>
+            <thead>
+                <tr><th>Datum</th><th>Name 1</th><th>Name 2</th></tr>
+            </thead>
+            <tbody>
+                {% for e in eintraege %}
+                    <tr>
+                        <td>{{ e.datum.strftime('%d.%m.%Y') }}</td>
+                        <td>{{ e.schueler1.nachname if e.schueler1 else "" }}</td>
+                        <td>{{ e.schueler2.nachname if e.schueler2 else "" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="empty-state">Noch keine Diensttage eingeplant.</p>
+    {% endif %}
+{% endblock %}

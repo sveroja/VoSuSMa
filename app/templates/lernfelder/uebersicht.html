@@ -15,7 +15,7 @@
         <h1>Notenübersicht</h1>
         <div class="table-actions">
             <a class="button button--secondary" href="{{ url_for('lernfelder.klausur_import', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">CSV-Import</a>
-            <a class="button button--secondary" href="{{ url_for('lernfelder.liste', klasse_id=klasse.id) }}">← Lernfelder</a>
+            <a class="button button--secondary" href="{{ url_for('klassen.liste', klasse_id=klasse.id) }}">← Lernfelder</a>
         </div>
     </div>
     <p class="subtitle">{{ klasse.bezeichnung }} – {{ lernfeld.label }}</p>

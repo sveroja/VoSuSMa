@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Blockplanung {{ schuljahr }}/{{ schuljahr + 1 }} – Admin – VoSuSMa{% endblock %}
+{% block content_class %}content--wide{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Blockplanung {{ schuljahr }}/{{ schuljahr + 1 }}</h1>
+        <div class="table-actions">
+            <a class="button button--secondary" href="{{ url_for('admin.index') }}">← Admin</a>
+            <form method="get" class="filter-form">
+                <label for="schuljahr">Schuljahr</label>
+                <select name="schuljahr" id="schuljahr" onchange="this.form.submit()">
+                    {% for sj in range(schuljahr - 3, schuljahr + 4) %}
+                        <option value="{{ sj }}" {% if sj == schuljahr %}selected{% endif %}>{{ sj }}/{{ sj + 1 }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+    </div>
+    <p class="hinweis">
+        Markiert je Klasse die Kalenderwochen, in denen sie in der Schule ist
+        (Blockunterricht). Klassen ganz ohne Häkchen in einem Schuljahr gelten
+        als durchgehend wöchentlich anwesend (Normalfall) – der
+        Klassendienst-Generator berücksichtigt beides automatisch, ebenso die
+        <a href="{{ url_for('admin.ferien_liste') }}">Ferienzeiten</a> (grau hinterlegt).
+    </p>
+
+    {% if not klassen %}
+        <p class="empty-state">Noch keine (aktiven) Klassen angelegt.</p>
+    {% else %}
+        <form method="post" action="{{ url_for('admin.blockplan_speichern') }}">
+            <input type="hidden" name="schuljahr" value="{{ schuljahr }}">
+            <div class="matrix-wrap">
+                <table class="matrix blockplan">
+                    <thead>
+                        <tr>
+                            <th>Klasse</th>
+                            {% for band in kopfbaender %}
+                                <th colspan="{{ band.colspan }}" class="{{ 'blockplan-ferien' if band.label }}">{{ band.label or '' }}</th>
+                            {% endfor %}
+                        </tr>
+                        <tr>
+                            <th></th>
+                            {% for w in wochen %}
+                                <th class="{{ 'blockplan-ferien' if w.ferien_label }}" title="ab {{ w.montag.strftime('%d.%m.%Y') }}">{{ w.kw }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for klasse in klassen %}
+                            <tr>
+                                <td>{{ klasse.bezeichnung }}</td>
+                                {% for w in wochen %}
+                                    <td class="blockplan-zelle {{ 'blockplan-ferien' if w.ferien_label }}">
+                                        <input type="checkbox" name="zelle_{{ klasse.id }}_{{ w.iso_jahr }}_{{ w.kw }}"
+                                               {% if (klasse.id, w.iso_jahr, w.kw) in belegt %}checked{% endif %}>
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="form__actions" style="margin-top:1rem">
+                <button type="submit">Speichern</button>
+            </div>
+        </form>
+    {% endif %}
+{% endblock %}

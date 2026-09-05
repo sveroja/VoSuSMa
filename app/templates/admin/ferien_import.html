@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Ferien-Import – Admin – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Ferienkalender aus .ics importieren</h1>
+        <a class="button button--secondary" href="{{ url_for('admin.ferien_liste') }}">← Ferienkalender</a>
+    </div>
+    <p class="hinweis">
+        Lade dir einmal jährlich die .ics-Datei mit den Schulferien deines
+        Bundeslands im Browser herunter (z.B. von der offiziellen
+        Kultusministeriums-Seite) und wähle sie hier aus. VoSuSMa liest die
+        Datei nur lokal ein – es wird dafür keine Verbindung ins Internet
+        aufgebaut. Schon vorhandene Zeiträume (gleiche Bezeichnung + Daten)
+        werden übersprungen, du kannst die Datei also gefahrlos erneut
+        importieren.
+    </p>
+    <form method="post" class="form" enctype="multipart/form-data">
+        <div class="form__field">
+            <label for="ics_datei">.ics-Datei</label>
+            <input type="file" id="ics_datei" name="ics_datei" accept=".ics,text/calendar" required>
+        </div>
+        <div class="form__actions">
+            <button type="submit">Importieren</button>
+            <a class="button button--secondary" href="{{ url_for('admin.ferien_liste') }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}

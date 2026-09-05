@@ -35,8 +35,13 @@ def _m_0001_schueler_betrieb_id(conn):
     conn.exec_driver_sql("ALTER TABLE schueler ADD COLUMN betrieb_id INTEGER")
 
 
+def _m_0002_klasse_dienst_hinweis(conn):
+    conn.exec_driver_sql("ALTER TABLE klassen ADD COLUMN dienst_hinweis TEXT")
+
+
 MIGRATIONS = [
     _m_0001_schueler_betrieb_id,
+    _m_0002_klasse_dienst_hinweis,
 ]
 
 

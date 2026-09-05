@@ -7,6 +7,6 @@
         warnung=warnung,
         wort=klasse.bezeichnung,
         action=url_for('klassen.loeschen', klasse_id=klasse.id),
-        abbrechen_url=url_for('klassen.liste'),
+        abbrechen_url=url_for('admin.klassen_liste'),
         knopf_text="Klasse endgültig löschen") }}
 {% endblock %}

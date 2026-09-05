@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ titel }} – Admin – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>{{ titel }}</h1>
+    <form method="post" class="form">
+        <div class="form__field">
+            <label for="bezeichnung">Bezeichnung</label>
+            <input type="text" id="bezeichnung" name="bezeichnung" value="{{ form.get('bezeichnung', '') }}"
+                   placeholder="z.B. Sommerferien oder Beweglicher Ferientag" required maxlength="120">
+        </div>
+        <div class="form__field">
+            <label for="von">Von</label>
+            <input type="date" id="von" name="von" value="{{ form.get('von', '') }}" required>
+        </div>
+        <div class="form__field">
+            <label for="bis">Bis (leer = Einzeltag)</label>
+            <input type="date" id="bis" name="bis" value="{{ form.get('bis', '') }}">
+        </div>
+        <div class="form__actions">
+            <button type="submit">Speichern</button>
+            <a class="button button--secondary" href="{{ url_for('admin.ferien_liste') }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}

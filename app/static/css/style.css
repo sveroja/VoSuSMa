@@ -1,16 +1,26 @@
 :root {
-    --color-bg: #f5f6f8;
+    --color-bg: #f4f6f8;
     --color-surface: #ffffff;
-    --color-text: #1f2430;
+    --color-text: #1c2129;
     --color-muted: #667085;
-    --color-border: #dfe3e8;
-    --color-primary: #2f6f4f;
-    --color-primary-hover: #245638;
+    --color-border: #d6dee7;
+    --color-border-strong: #b9c6d4;
+    /* Schul-Blau/-Petrol wie im anderen BBZ-NOK-Tool (bbz-nok-onboarding) -
+       dunkleres Blau statt des vorherigen helleren Blau ergibt auch deutlich
+       besseren Textkontrast fuer Links (~8:1 statt ~5:1 auf Weiss). */
+    --color-primary: #005296;
+    --color-primary-hover: #00447e;
+    --color-primary-active: #003a6b;
+    --color-primary-soft: #e6edf5;
+    --color-accent: #188291;
     --color-error: #b3261e;
     --color-error-bg: #fbeae9;
     --color-success: #1f7a4d;
     --color-success-bg: #e8f5ee;
-    --radius: 6px;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow-sm: 0 1px 2px rgba(20, 24, 31, 0.06), 0 1px 1px rgba(20, 24, 31, 0.04);
+    --shadow-md: 0 8px 20px rgba(20, 24, 31, 0.08);
 }
 
 * {
@@ -22,6 +32,12 @@ body {
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--color-text);
     background: var(--color-bg);
+    line-height: 1.5;
+}
+
+::selection {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-hover);
 }
 
 a {
@@ -31,6 +47,7 @@ a {
 .site-header {
     background: var(--color-surface);
     border-bottom: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
 }
 
 .site-header__inner {
@@ -45,6 +62,7 @@ a {
 .brand {
     font-weight: 700;
     font-size: 1.15rem;
+    letter-spacing: -0.01em;
     text-decoration: none;
     color: var(--color-text);
 }
@@ -59,10 +77,14 @@ a {
     text-decoration: none;
     color: var(--color-muted);
     font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s, background 0.15s;
 }
 
 .main-nav a:hover {
-    color: var(--color-text);
+    color: #fff;
+    background: var(--color-accent);
 }
 
 .env-badge {
@@ -98,12 +120,15 @@ a {
 
 h1 {
     margin-top: 0;
+    letter-spacing: -0.01em;
 }
 
 .page-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    gap: 0.75rem 1.5rem;
     margin-bottom: 1.5rem;
 }
 
@@ -117,6 +142,7 @@ h1 {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
     padding: 1.2rem 1.5rem;
     min-width: 150px;
 }
@@ -145,6 +171,7 @@ table {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
 }
 
@@ -155,7 +182,7 @@ th, td {
 }
 
 th {
-    background: #fafbfc;
+    background: var(--color-bg);
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -164,6 +191,10 @@ th {
 
 tbody tr:last-child td {
     border-bottom: none;
+}
+
+tbody tr:hover td {
+    background: var(--color-bg);
 }
 
 .badge {
@@ -200,6 +231,7 @@ code {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
     padding: 1.5rem;
 }
 
@@ -213,15 +245,6 @@ code {
 .form__field label {
     font-weight: 600;
     font-size: 0.9rem;
-}
-
-.form__field input,
-.form__field select {
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    font-size: 1rem;
-    font-family: inherit;
 }
 
 .form__fieldset {
@@ -269,10 +292,10 @@ code {
 }
 
 .filter-form select {
-    padding: 0.4rem 0.6rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    font-family: inherit;
+    /* padding-block statt Shorthand: laesst padding-right dem globalen
+       select{} fuer den Pfeil (siehe unten) - sonst ueberschreibt die
+       hoehere Spezifitaet hier (.filter-form select) den Pfeil-Abstand. */
+    padding-block: 0.4rem;
 }
 
 .table-actions {
@@ -332,6 +355,7 @@ button:disabled,
 .button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none !important;
 }
 
 .hinweis {
@@ -371,15 +395,13 @@ table.matrix th a {
 .matrix .zell-input {
     width: 3.4rem;
     padding: 0.3rem;
-    border: 1px solid var(--color-border);
-    border-radius: 4px;
-    font: inherit;
     text-align: center;
 }
 
 .matrix .zell-input:focus {
     outline: 2px solid var(--color-primary);
     outline-offset: -1px;
+    box-shadow: none;
 }
 
 td.note--warn {
@@ -395,7 +417,7 @@ td.note--bad {
 th.kat-schnitt,
 td.kat-schnitt {
     font-weight: 600;
-    background: #fafbfc;
+    background: var(--color-bg);
 }
 
 th.gesamt,
@@ -407,13 +429,14 @@ td.gesamt {
 dialog.bulk-dialog {
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
     padding: 1.5rem;
     max-width: 520px;
     width: 92vw;
 }
 
 dialog.bulk-dialog::backdrop {
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(20, 24, 31, 0.45);
 }
 
 .bulk-kopf {
@@ -431,12 +454,15 @@ dialog.bulk-dialog::backdrop {
     font-weight: 600;
 }
 
-.bulk-kopf input,
-.bulk-kopf select {
+.bulk-kopf input {
     padding: 0.4rem 0.5rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    font-family: inherit;
+}
+
+.bulk-kopf select {
+    /* padding-inline-start statt Shorthand: padding-inline-end bleibt dem
+       globalen select{} fuer den Pfeil ueberlassen (siehe weiter unten). */
+    padding-block: 0.4rem;
+    padding-inline-start: 0.5rem;
 }
 
 .bulk-table-wrap {
@@ -449,14 +475,12 @@ dialog.bulk-dialog::backdrop {
 
 .bulk-table-wrap table.matrix {
     border: none;
+    box-shadow: none;
 }
 
 .bulk-note {
     width: 4rem;
     padding: 0.35rem 0.45rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    font-family: inherit;
     font-size: 0.95rem;
 }
 
@@ -474,7 +498,11 @@ dialog.bulk-dialog::backdrop {
     margin-left: 0.5rem;
 }
 
-.button--small {
+/* Doppelte Klasse (statt nur .button--small): gewinnt zuverlaessig gegen die
+   spaeter stehende Grundregel "button, .button {padding:...}" unten, da
+   .button--small vorher in der Datei steht (gleiche Spezifitaet, spaetere
+   Regel im Quelltext gewinnt sonst). */
+.button.button--small {
     padding: 0.15rem 0.5rem;
     font-size: 0.75rem;
 }
@@ -484,6 +512,77 @@ dialog.bulk-dialog::backdrop {
     margin-top: 0.75rem;
 }
 
+/* Klassendienste: "wer hatte wie oft Dienst" - kompakte Chip-Liste */
+.dienst-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.dienst-chip {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+.dienst-chip strong {
+    color: var(--color-primary);
+    margin-left: 0.3rem;
+}
+
+/* --- Formularelemente: einheitlicher Rahmen, Radius, Fokus-Ring, eigener
+   Select-Pfeil (SVG inline, kein Icon-Font/-Request) für alle <input>/
+   <select>/<textarea> im Tool. --- */
+input,
+select,
+textarea {
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+    padding: 0.5rem 0.6rem;
+}
+
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 2.2rem;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23667085' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 13px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+    background: var(--color-bg);
+    color: var(--color-muted);
+    cursor: not-allowed;
+}
+
+/* --- Buttons --- */
 button, .button {
     display: inline-block;
     padding: 0.55rem 1.1rem;
@@ -495,21 +594,45 @@ button, .button {
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
 }
 
 button:hover, .button:hover {
     background: var(--color-primary-hover);
     border-color: var(--color-primary-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+button:active, .button:active {
+    background: var(--color-primary-active);
+    border-color: var(--color-primary-active);
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+}
+
+button:focus-visible, .button:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
 .button--secondary {
-    background: transparent;
+    background: var(--color-surface);
     color: var(--color-text);
     border-color: var(--color-border);
 }
 
 .button--secondary:hover {
-    background: #f0f1f3;
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
+    color: var(--color-primary-hover);
+}
+
+.button--secondary:active {
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
+    color: var(--color-primary-active);
 }
 
 .flashes {
@@ -535,4 +658,207 @@ button:hover, .button:hover {
 .flash--success {
     background: var(--color-success-bg);
     color: var(--color-success);
+}
+
+/* Klassen-Reiter (zweite Zeile unter dem Seitenkopf auf der Klassenübersicht) */
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+}
+
+.tab {
+    display: inline-block;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    text-decoration: none;
+    color: var(--color-muted);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.15s, color 0.15s;
+}
+
+.tab:hover {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-hover);
+}
+
+.tab--aktiv {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.tab--aktiv:hover {
+    background: var(--color-primary-hover);
+    color: #fff;
+}
+
+/* Blockplanung */
+table.blockplan th,
+table.blockplan td {
+    padding: 0.25rem 0.35rem;
+    text-align: center;
+}
+
+table.blockplan td.blockplan-zelle {
+    padding: 0.15rem;
+}
+
+.blockplan-ferien {
+    background: var(--color-bg);
+    color: var(--color-muted);
+}
+
+/* Dashboard-Kacheln */
+.kacheln {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.kachel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 1.2rem 1rem;
+    position: relative;
+    transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.kachel:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.kachel__link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    text-decoration: none;
+    color: var(--color-text);
+}
+
+.kachel__icon {
+    font-size: 1.8rem;
+}
+
+.kachel__titel {
+    font-weight: 600;
+    text-align: center;
+    word-break: break-word;
+}
+
+.kachel__loeschen {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.5rem;
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: var(--color-muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.kachel__loeschen:hover {
+    color: var(--color-error);
+    background: none;
+    box-shadow: none;
+    transform: none;
+}
+
+.kachel--neu {
+    border-style: dashed;
+    color: var(--color-muted);
+}
+
+/* Schalter (Bildschirmschoner) */
+.schalter-zeile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+}
+
+.schalter {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.schalter input {
+    appearance: none;
+    -webkit-appearance: none;
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.schalter__slider {
+    position: absolute;
+    inset: 0;
+    background: #b7bec7;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.schalter__slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.15s;
+    box-shadow: var(--shadow-sm);
+}
+
+.schalter input:checked + .schalter__slider {
+    background: var(--color-primary);
+}
+
+.schalter input:checked + .schalter__slider::before {
+    transform: translateX(18px);
+}
+
+/* Druckseiten (Klassendienste u.a.): Chrome ausblenden, Hinweistext als
+   mehrzeiliger Fliesstext mit erhaltenen Zeilenumbruechen. */
+.druck-hinweistext {
+    white-space: pre-line;
+    margin-bottom: 1.5rem;
+}
+
+@media print {
+    .site-header,
+    .flashes,
+    .no-print {
+        display: none !important;
+    }
+
+    .content {
+        max-width: none;
+        padding: 0;
+    }
+
+    body {
+        background: #fff;
+    }
+
+    table, .card, .kachel, .form {
+        box-shadow: none;
+    }
 }

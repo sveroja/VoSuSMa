@@ -15,6 +15,55 @@
 
     <nav class="quick-links">
         <a class="button" href="{{ url_for('klassen.liste') }}">Klassen verwalten</a>
-        <a class="button button--secondary" href="{{ url_for('klassen.neu') }}">Klasse anlegen</a>
+        <a class="button button--secondary" href="{{ url_for('admin.klassen_liste') }}">Klasse anlegen</a>
     </nav>
+
+    {% if screensaver_verfuegbar %}
+        <div class="schalter-zeile">
+            <form method="post" action="{{ url_for('main.bildschirmschoner_umschalten') }}" id="schalter-form">
+                <label class="schalter">
+                    <input type="checkbox" name="an" {% if screensaver_aktiv %}checked{% endif %} onchange="this.closest('form').submit()">
+                    <span class="schalter__slider"></span>
+                </label>
+            </form>
+            <span>Bildschirmschoner/Sperre unterdrücken, solange VoSuSMa läuft</span>
+        </div>
+    {% endif %}
+
+    <h2 style="margin-top:2rem">Links aus dem Schulalltag</h2>
+    <div class="kacheln">
+        {% for link in links %}
+            <div class="kachel">
+                <form method="post" action="{{ url_for('main.dashboard_link_loeschen', link_id=link.id) }}"
+                      onsubmit="return confirm('Kachel „{{ link.titel }}“ entfernen?');">
+                    <button type="submit" class="kachel__loeschen" title="entfernen">✕</button>
+                </form>
+                <a class="kachel__link" href="{{ link.url }}" target="_blank" rel="noopener">
+                    <span class="kachel__icon">{{ link.icon or "🔗" }}</span>
+                    <span class="kachel__titel">{{ link.titel }}</span>
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+
+    <details>
+        <summary>+ Kachel hinzufügen</summary>
+        <form method="post" action="{{ url_for('main.dashboard_link_neu') }}" class="form" style="margin-top:1rem">
+            <div class="form__field">
+                <label for="titel">Titel</label>
+                <input type="text" id="titel" name="titel" required maxlength="80" placeholder="z.B. WebUntis">
+            </div>
+            <div class="form__field">
+                <label for="url">Link</label>
+                <input type="url" id="url" name="url" required maxlength="500" placeholder="https://...">
+            </div>
+            <div class="form__field">
+                <label for="icon">Icon (ein Emoji, optional)</label>
+                <input type="text" id="icon" name="icon" maxlength="8" placeholder="📅">
+            </div>
+            <div class="form__actions">
+                <button type="submit">Kachel anlegen</button>
+            </div>
+        </form>
+    </details>
 {% endblock %}
