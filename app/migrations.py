@@ -39,9 +39,17 @@ def _m_0002_klasse_dienst_hinweis(conn):
     conn.exec_driver_sql("ALTER TABLE klassen ADD COLUMN dienst_hinweis TEXT")
 
 
+def _m_0003_noteneintrag_abwesend_kommentar(conn):
+    conn.exec_driver_sql(
+        "ALTER TABLE noteneintraege ADD COLUMN abwesend BOOLEAN NOT NULL DEFAULT 0"
+    )
+    conn.exec_driver_sql("ALTER TABLE noteneintraege ADD COLUMN kommentar VARCHAR(255)")
+
+
 MIGRATIONS = [
     _m_0001_schueler_betrieb_id,
     _m_0002_klasse_dienst_hinweis,
+    _m_0003_noteneintrag_abwesend_kommentar,
 ]
 
 

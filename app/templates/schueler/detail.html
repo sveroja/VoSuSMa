@@ -51,7 +51,8 @@
                                                 <li>
                                                     {{ noteneintrag.datum.strftime('%d.%m.%Y') }}
                                                     {% if noteneintrag.bezeichnung %}– {{ noteneintrag.bezeichnung }}{% endif %}:
-                                                    <strong>{{ "%.1f"|format(note) if note is not none else "–" }}</strong>
+                                                    <strong>{% if noteneintrag.abwesend %}n.a.{% else %}{{ "%.1f"|format(note) if note is not none else "–" }}{% endif %}</strong>
+                                                    {% if noteneintrag.kommentar %}<span class="hinweis">– {{ noteneintrag.kommentar }}</span>{% endif %}
                                                     <form method="post" action="{{ url_for('noten.loeschen', noteneintrag_id=noteneintrag.id) }}"
                                                           class="inline-form" onsubmit="return confirm('Noteneintrag wirklich löschen?');">
                                                         <button type="submit" class="action-link">löschen</button>

@@ -11,6 +11,13 @@ from app.models import Notenschema
 NOTE_MIN = 1.0
 NOTE_MAX = 6.0
 
+# Eingabe-Kuerzel fuer "SuS war nicht anwesend" (statt einer Note/Punktzahl)
+_NA_TOKEN = {"na", "n.a.", "n.a", "n. a.", "n/a"}
+
+
+def ist_na(rohwert: str) -> bool:
+    return (rohwert or "").strip().lower() in _NA_TOKEN
+
 
 def parse_note(rohwert: str) -> float:
     """Notentext ("2", "2,3", " 3.0 ") -> float. Wirft ValueError bei Unsinn
@@ -38,7 +45,10 @@ def note_aus_prozent(prozent: float, schema: Notenschema | None = None) -> float
 
 
 def note_aus_eintrag(eintrag) -> float | None:
-    """Ein einzelner Noteneintrag -> Note. manuelle_note sticht alles."""
+    """Ein einzelner Noteneintrag -> Note. manuelle_note sticht alles.
+    Abwesend ("na") -> keine Note, zaehlt nicht in den Schnitt."""
+    if getattr(eintrag, "abwesend", False):
+        return None
     if eintrag.manuelle_note is not None:
         return eintrag.manuelle_note
     if eintrag.note_direkt is not None:

@@ -14,7 +14,7 @@ from app.models import (
 )
 from app.gewichtung import gewichte_aus_formular
 from app.importe import parse_klausur_liste
-from app.noten_logik import gesamtnote, kategorie_durchschnitt, note_aus_eintrag, parse_note
+from app.noten_logik import gesamtnote, ist_na, kategorie_durchschnitt, note_aus_eintrag, parse_note
 from app.stammdaten import STANDARD_NOTENKATEGORIEN
 
 bp = Blueprint("lernfelder", __name__, url_prefix="/klassen/<int:klasse_id>/lernfelder")
@@ -342,11 +342,16 @@ def kategorie_uebersicht(klasse_id, lernfeld_id, kategorie_id):
                 noten.append(note)
             if e is None:
                 rohwert = ""
+            elif e.abwesend:
+                rohwert = "na"
             elif ist_punkte:
                 rohwert = _zahl(e.erreichte_punkte)
             else:
                 rohwert = _zahl(e.manuelle_note if e.manuelle_note is not None else e.note_direkt)
-            zellen.append({"eintrag": e, "note": note, "rohwert": rohwert, "idx": sp["idx"]})
+            zellen.append({
+                "eintrag": e, "note": note, "rohwert": rohwert, "idx": sp["idx"],
+                "kommentar": (e.kommentar or "") if e is not None else "",
+            })
         zeilen.append({
             "schueler": s, "zellen": zellen,
             "schnitt": round(sum(noten) / len(noten), 2) if noten else None,
@@ -396,6 +401,9 @@ def kategorie_speichern(klasse_id, lernfeld_id, kategorie_id):
             return v
         return parse_note(roh)
 
+    def _kommentar(key):
+        return request.form.get(key, "").strip()[:255] or None
+
     geaendert = geloescht = angelegt = 0
     fehler = []
 
@@ -405,25 +413,45 @@ def kategorie_speichern(klasse_id, lernfeld_id, kategorie_id):
             if e is None or e.lernfeld_id != lernfeld.id or e.kategorie_id != kategorie.id:
                 continue
             roh = request.form[key].strip()
+            neuer_kommentar = _kommentar(f"ek_{e.id}")
+
             if not roh:
                 db.session.delete(e)
                 geloescht += 1
                 continue
-            try:
-                v = _wert(roh)
-            except ValueError:
-                fehler.append(roh)
-                continue
-            if ist_punkte:
-                if e.erreichte_punkte != v:
-                    e.erreichte_punkte = v
-                    geaendert += 1
-            elif e.manuelle_note is not None:
-                if e.manuelle_note != v:
-                    e.manuelle_note = v
-                    geaendert += 1
-            elif e.note_direkt != v:
-                e.note_direkt = v
+
+            geaendert_hier = False
+            if e.kommentar != neuer_kommentar:
+                e.kommentar = neuer_kommentar
+                geaendert_hier = True
+
+            if ist_na(roh):
+                if not e.abwesend:
+                    e.abwesend = True
+                    e.erreichte_punkte = e.note_direkt = e.manuelle_note = None
+                    geaendert_hier = True
+            else:
+                try:
+                    v = _wert(roh)
+                except ValueError:
+                    fehler.append(roh)
+                    continue
+                if e.abwesend:
+                    e.abwesend = False
+                    geaendert_hier = True
+                if ist_punkte:
+                    if e.erreichte_punkte != v:
+                        e.erreichte_punkte = v
+                        geaendert_hier = True
+                elif e.manuelle_note is not None:
+                    if e.manuelle_note != v:
+                        e.manuelle_note = v
+                        geaendert_hier = True
+                elif e.note_direkt != v:
+                    e.note_direkt = v
+                    geaendert_hier = True
+
+            if geaendert_hier:
                 geaendert += 1
 
         elif key.startswith("n_") and request.form[key].strip():
@@ -431,20 +459,27 @@ def kategorie_speichern(klasse_id, lernfeld_id, kategorie_id):
             if len(teile) != 3 or teile[1] not in spalten or not teile[2].isdigit():
                 continue
             d, bez, mp = spalten[teile[1]]
-            try:
-                v = _wert(request.form[key])
-            except ValueError:
-                fehler.append(request.form[key].strip())
-                continue
+            roh = request.form[key]
             neu = Notenereintrag(
                 schueler_id=int(teile[2]), lernfeld_id=lernfeld.id,
                 kategorie_id=kategorie.id, datum=d, bezeichnung=bez,
+                kommentar=_kommentar(f"nk_{teile[1]}_{teile[2]}"),
             )
-            if ist_punkte:
-                neu.erreichte_punkte = v
-                neu.max_punkte = mp
+            if ist_na(roh):
+                neu.abwesend = True
+                if ist_punkte:
+                    neu.max_punkte = mp
             else:
-                neu.note_direkt = v
+                try:
+                    v = _wert(roh)
+                except ValueError:
+                    fehler.append(roh.strip())
+                    continue
+                if ist_punkte:
+                    neu.erreichte_punkte = v
+                    neu.max_punkte = mp
+                else:
+                    neu.note_direkt = v
             db.session.add(neu)
             angelegt += 1
 
@@ -659,7 +694,8 @@ def noten_bulk(klasse_id, lernfeld_id):
     gespeichert = 0
     fehler = []
     for schueler in _aktive_schueler(klasse):
-        rohwert = request.form.get(f"wert_{schueler.id}", "").strip().replace(",", ".")
+        rohwert = request.form.get(f"wert_{schueler.id}", "").strip()
+        kommentar = request.form.get(f"kommentar_{schueler.id}", "").strip()[:255] or None
         if not rohwert:
             continue
         eintrag = Notenereintrag(
@@ -668,10 +704,15 @@ def noten_bulk(klasse_id, lernfeld_id):
             kategorie_id=kategorie.id,
             datum=datum,
             bezeichnung=bezeichnung,
+            kommentar=kommentar,
         )
-        if modus == "punkte":
+        if ist_na(rohwert):
+            eintrag.abwesend = True
+            if modus == "punkte":
+                eintrag.max_punkte = max_punkte
+        elif modus == "punkte":
             try:
-                punkte = float(rohwert)
+                punkte = float(rohwert.replace(",", "."))
                 if punkte < 0:
                     raise ValueError
             except ValueError:

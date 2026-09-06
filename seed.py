@@ -141,12 +141,21 @@ def _noten_fuer(schueler, lernfeld, kategorien):
     # muendlich: pro Termin (gemeinsames Datum/Bezeichnung wie beim Bulk) fast
     # jede/r eine Note - so sieht die Kategorie-Detailansicht realistisch aus.
     for datum, bez in termine["muendlich"]:
-        if random.random() < 0.9:
+        wuerfel = random.random()
+        if wuerfel < 0.08:  # nicht anwesend
+            db.session.add(Notenereintrag(
+                schueler_id=schueler.id, lernfeld_id=lernfeld.id,
+                kategorie_id=kategorien["muendlich_sonstige"].id,
+                datum=datum, bezeichnung=bez, abwesend=True,
+                kommentar=random.choice([None, "krank", "entschuldigt", "Attest"]),
+            ))
+        elif wuerfel < 0.95:
             db.session.add(Notenereintrag(
                 schueler_id=schueler.id, lernfeld_id=lernfeld.id,
                 kategorie_id=kategorien["muendlich_sonstige"].id,
                 datum=datum, bezeichnung=bez,
                 note_direkt=round(random.uniform(1.0, 4.5), 1),
+                kommentar=random.choice([None, None, None, "gute Mitarbeit", "wenig Beteiligung"]),
             ))
     for datum, bez in termine["klassenarbeit"]:
         db.session.add(Notenereintrag(

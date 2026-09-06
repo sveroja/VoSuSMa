@@ -311,6 +311,10 @@ class Notenereintrag(db.Model):
     max_punkte = db.Column(db.Float, nullable=True)
     note_direkt = db.Column(db.Float, nullable=True)
     manuelle_note = db.Column(db.Float, nullable=True)
+    # abwesend: SuS war bei dieser Erfassung nicht da ("na"). Dokumentiert, zaehlt
+    # aber nicht in den Schnitt (note_aus_eintrag -> None).
+    abwesend = db.Column(db.Boolean, nullable=False, default=False)
+    kommentar = db.Column(db.String(255), nullable=True)
 
     schueler = db.relationship("Schueler")
     lernfeld = db.relationship("Lernfeld", back_populates="noteneintraege")

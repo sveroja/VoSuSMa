@@ -45,10 +45,15 @@
                                 <td>{{ zeile.schueler.nachname }}</td>
                                 <td>{{ zeile.schueler.vorname }}</td>
                                 {% for z in zeile.zellen %}
-                                    <td>
+                                    <td class="zell-td">
                                         <input class="zell-input" type="text" inputmode="decimal" autocomplete="off"
                                                name="{{ 'e_' ~ z.eintrag.id if z.eintrag else 'n_' ~ z.idx ~ '_' ~ zeile.schueler.id }}"
                                                value="{{ z.rohwert }}" placeholder="–">
+                                        {% if z.eintrag %}
+                                            <input class="zell-kommentar" type="text" autocomplete="off" maxlength="255"
+                                                   name="ek_{{ z.eintrag.id }}"
+                                                   value="{{ z.kommentar }}" placeholder="Kommentar">
+                                        {% endif %}
                                     </td>
                                 {% endfor %}
                                 {% if zeile.schnitt is none %}
@@ -67,6 +72,7 @@
             </div>
             <p class="hinweis">
                 Feld leeren = Note löschen. Leeres Feld ausfüllen = Note ergänzen (übernimmt Datum/Bezeichnung der Spalte).
+                <code>na</code> = nicht anwesend (zählt nicht in den Schnitt). Kommentar optional.
                 {% if ist_punkte %} Werte sind erreichte Punkte.{% endif %}
             </p>
         </form>

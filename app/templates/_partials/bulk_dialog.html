@@ -41,7 +41,7 @@
         <div class="bulk-table-wrap">
             <table class="matrix">
                 <thead>
-                    <tr><th>SuS</th><th id="bulk-wert-kopf">Note</th></tr>
+                    <tr><th>SuS</th><th id="bulk-wert-kopf">Note</th><th>Kommentar</th></tr>
                 </thead>
                 <tbody id="bulk-tbody">
                     {% for s in schueler_liste %}
@@ -49,11 +49,16 @@
                             <td>{{ s.nachname }}, {{ s.vorname }}</td>
                             <td><input type="text" inputmode="decimal" name="wert_{{ s.id }}"
                                        class="bulk-note" autocomplete="off" placeholder="–"></td>
+                            <td><input type="text" name="kommentar_{{ s.id }}"
+                                       class="bulk-kommentar" autocomplete="off" maxlength="255" placeholder="optional"></td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        <p class="hinweis" style="margin-top:0">
+            <code>na</code> im Notenfeld = SuS war nicht anwesend (wird dokumentiert, zählt nicht in den Schnitt).
+        </p>
         <div class="form__actions">
             <button type="submit">Speichern</button>
             <button type="button" class="button button--secondary" onclick="document.getElementById('bulk-dialog').close()">Abbrechen</button>
@@ -103,7 +108,7 @@
         bulkModusAnwenden();
         bulkReihenfolge.value = 'alpha';
         bulkSortieren();
-        bulkDialog.querySelectorAll('.bulk-note').forEach(function (i) { i.value = ''; });
+        bulkDialog.querySelectorAll('.bulk-note, .bulk-kommentar').forEach(function (i) { i.value = ''; });
         bulkDialog.showModal();
         var erstes = bulkDialog.querySelector('.bulk-note');
         if (erstes) { erstes.focus(); }
