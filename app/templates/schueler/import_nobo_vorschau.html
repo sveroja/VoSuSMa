@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Import-Vorschau (NOBO) – {{ klasse.bezeichnung }} – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>Import-Vorschau (NOBO-Anmeldungen) – {{ klasse.bezeichnung }}</h1>
+    <p class="hinweis">
+        {{ anzahl_neu }} neue SuS werden angelegt (inkl. Betrieb, falls angegeben). Zeilen
+        „bereits in Klasse" und „Fehler" werden übersprungen.
+    </p>
+
+    <div class="matrix-wrap">
+        <table class="matrix">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Nachname</th>
+                    <th>Vorname</th>
+                    <th>Geburtsdatum</th>
+                    <th>Betrieb</th>
+                    <th>Betrieb-E-Mail</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for z in zeilen %}
+                    <tr>
+                        <td>
+                            {% if z.status == 'neu' %}<span class="badge badge--aktiv">neu</span>
+                            {% elif z.status == 'vorhanden' %}<span class="badge badge--inaktiv">bereits in Klasse</span>
+                            {% else %}<span class="badge badge--inaktiv">Fehler: {{ z.fehler|join(', ') }}</span>{% endif %}
+                        </td>
+                        <td>{{ z.nachname }}</td>
+                        <td>{{ z.vorname }}</td>
+                        <td>{{ z.geburtsdatum.strftime('%d.%m.%Y') if z.geburtsdatum else '–' }}</td>
+                        <td>{{ z.betrieb or '–' }}</td>
+                        <td>{{ z.betrieb_email or '–' }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <form method="post" action="{{ url_for('schueler.importieren_nobo_anlegen', klasse_id=klasse.id) }}" class="form">
+        <textarea name="csv_text" hidden>{{ csv_text }}</textarea>
+        <div class="form__actions">
+            <button type="submit" {% if not anzahl_neu %}disabled{% endif %}>{{ anzahl_neu }} SuS anlegen</button>
+            <a class="button button--secondary" href="{{ url_for('schueler.importieren_nobo', klasse_id=klasse.id) }}">Andere Datei</a>
+        </div>
+    </form>
+{% endblock %}

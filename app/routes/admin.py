@@ -6,6 +6,7 @@ from app import kalender
 from app.extensions import db
 from app.ferien_import import parse_ics_ferien
 from app.gewichtung import gewichte_aus_formular
+from app.importe import parse_betriebe_liste
 from app.models import (
     Betrieb,
     Bildungsgang,
@@ -304,6 +305,79 @@ def betrieb_neu():
     db.session.add(betrieb)
     db.session.commit()
     flash(f"Betrieb '{betrieb.name}' wurde angelegt.", "success")
+    return redirect(url_for("admin.betrieb_liste"))
+
+
+@bp.route("/betriebe/import", methods=["GET", "POST"])
+def betrieb_import():
+    if request.method != "POST":
+        return render_template("admin/betrieb_import.html")
+
+    datei = request.files.get("csv_datei")
+    if not datei or not datei.filename:
+        flash("Bitte eine Datei auswählen.", "error")
+        return render_template("admin/betrieb_import.html"), 400
+
+    zeilen, warnungen = parse_betriebe_liste(datei.read())
+    if not zeilen:
+        for w in warnungen:
+            flash(w, "error")
+        return render_template("admin/betrieb_import.html"), 400
+
+    vorhandene = {b.name.lower() for b in Betrieb.query.all()}
+    for z in zeilen:
+        z["status"] = "vorhanden" if z["name"].lower() in vorhandene else "neu"
+
+    for w in warnungen:
+        flash(w, "error")
+
+    return render_template(
+        "admin/betrieb_import_vorschau.html",
+        zeilen=zeilen,
+        csv_text=_betriebe_wieder_text(zeilen),
+        anzahl_neu=sum(1 for z in zeilen if z["status"] == "neu"),
+    )
+
+
+def _betriebe_wieder_text(zeilen: list[dict]) -> str:
+    kopf = "name\tansprechpartner\temail\ttelefon"
+    aus = [kopf]
+    for z in zeilen:
+        aus.append("\t".join([
+            z["name"], z["ansprechpartner"] or "", z["email"] or "", z["telefon"] or "",
+        ]))
+    return "\n".join(aus)
+
+
+@bp.route("/betriebe/import/anlegen", methods=["POST"])
+def betrieb_import_anlegen():
+    text = request.form.get("csv_text", "")
+
+    angelegt = uebersprungen = 0
+    for roh in text.split("\n")[1:]:  # erste Zeile ist der Kopf aus _betriebe_wieder_text
+        if not roh.strip():
+            continue
+        teile = (roh.split("\t") + [""] * 4)[:4]
+        name, ansprechpartner, email, telefon = (t.strip() for t in teile)
+        if not name:
+            continue
+        if Betrieb.query.filter(db.func.lower(Betrieb.name) == name.lower()).first():
+            uebersprungen += 1
+            continue
+        db.session.add(Betrieb(
+            name=name,
+            ansprechpartner=ansprechpartner or None,
+            email=email or None,
+            telefon=telefon or None,
+        ))
+        angelegt += 1
+
+    db.session.commit()
+    flash(
+        f"{angelegt} Betrieb(e) importiert"
+        + (f", {uebersprungen} übersprungen (schon vorhanden)" if uebersprungen else "") + ".",
+        "success",
+    )
     return redirect(url_for("admin.betrieb_liste"))
 
 

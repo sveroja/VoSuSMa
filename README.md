@@ -18,6 +18,13 @@ Jedes Skript legt bei Bedarf eine virtuelle Umgebung (`.venv`) an, installiert
 `requirements.txt` und startet `start.py` (Flask-Dev-Server, öffnet automatisch
 `http://127.0.0.1:5000/`). Manuell mit aktivierter venv: `python start.py`.
 
+Unter Windows läuft der Server danach ohne sichtbares Konsolenfenster/
+Taskleisten-Eintrag (`pythonw.exe`); Meldungen stehen in `instance/start.log`.
+Beenden über den Link **„VoSuSMa beenden"** auf der Startseite (kein Strg+C
+ohne Konsole möglich). Für eine Desktop-Verknüpfung, die auch das kurze
+Setup-Fenster beim allerersten Start unterdrückt: `start_windows.vbs`
+verknüpfen statt `start_windows.bat`.
+
 ## Erste Schritte
 
 1. **Admin → Bildungsgang anlegen** und dort den **Lernfeld-Katalog** pflegen

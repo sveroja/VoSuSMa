@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Import-Vorschau – Betriebe – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>Import-Vorschau – Betriebe</h1>
+    <p class="hinweis">
+        {{ anzahl_neu }} neue Betriebe werden angelegt. Bereits vorhandene (gleicher
+        Name) werden übersprungen.
+    </p>
+
+    <div class="matrix-wrap">
+        <table class="matrix">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Name</th>
+                    <th>Ansprechpartner</th>
+                    <th>E-Mail</th>
+                    <th>Telefon</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for z in zeilen %}
+                    <tr>
+                        <td>
+                            {% if z.status == 'neu' %}<span class="badge badge--aktiv">neu</span>
+                            {% else %}<span class="badge badge--inaktiv">bereits vorhanden</span>{% endif %}
+                        </td>
+                        <td>{{ z.name }}</td>
+                        <td>{{ z.ansprechpartner or '–' }}</td>
+                        <td>{{ z.email or '–' }}</td>
+                        <td>{{ z.telefon or '–' }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <form method="post" action="{{ url_for('admin.betrieb_import_anlegen') }}" class="form">
+        <textarea name="csv_text" hidden>{{ csv_text }}</textarea>
+        <div class="form__actions">
+            <button type="submit" {% if not anzahl_neu %}disabled{% endif %}>{{ anzahl_neu }} Betrieb(e) anlegen</button>
+            <a class="button button--secondary" href="{{ url_for('admin.betrieb_import') }}">Andere Datei</a>
+        </div>
+    </form>
+{% endblock %}

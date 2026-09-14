@@ -3,7 +3,7 @@ from datetime import date
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.extensions import db
-from app.importe import parse_sus_liste
+from app.importe import parse_nobo_anmeldungen, parse_sus_liste
 from app.models import Betrieb, Klasse, Notenereintrag, Schueler, SchuelerKlasse
 from app.noten_logik import gesamtnote, kategorie_durchschnitt, note_aus_eintrag
 
@@ -420,6 +420,114 @@ def importieren_anlegen(klasse_id):
     db.session.commit()
     flash(
         f"{angelegt} SuS importiert" + (f", {uebersprungen} übersprungen (schon in der Klasse)" if uebersprungen else "") + ".",
+        "success",
+    )
+    return redirect(url_for("schueler.liste", klasse_id=klasse.id))
+
+
+@bp.route("/import-nobo/<int:klasse_id>", methods=["GET", "POST"])
+def importieren_nobo(klasse_id):
+    """Zweiter SuS-Import zusaetzlich zum Untis-Import oben: liest den
+    NOBO-Anmeldungen-Export (Online-Anmeldetool der Schule), der je SuS-Zeile
+    auch den Ausbildungsbetrieb mitfuehrt."""
+    klasse = Klasse.query.get_or_404(klasse_id)
+
+    if request.method != "POST":
+        return render_template("schueler/import_nobo.html", klasse=klasse)
+
+    datei = request.files.get("csv_datei")
+    if not datei or not datei.filename:
+        flash("Bitte eine Datei auswählen.", "error")
+        return render_template("schueler/import_nobo.html", klasse=klasse), 400
+
+    zeilen, warnungen = parse_nobo_anmeldungen(datei.read())
+    if not zeilen:
+        for w in warnungen:
+            flash(w, "error")
+        return render_template("schueler/import_nobo.html", klasse=klasse), 400
+
+    for z in zeilen:
+        if z["fehler"]:
+            z["status"] = "fehler"
+        elif _schon_in_klasse(z["nachname"], z["vorname"], klasse.id):
+            z["status"] = "vorhanden"
+        else:
+            z["status"] = "neu"
+
+    for w in warnungen:
+        flash(w, "error")
+
+    return render_template(
+        "schueler/import_nobo_vorschau.html",
+        klasse=klasse,
+        zeilen=zeilen,
+        csv_text=_nobo_wieder_text(zeilen),
+        anzahl_neu=sum(1 for z in zeilen if z["status"] == "neu"),
+    )
+
+
+def _nobo_wieder_text(zeilen: list[dict]) -> str:
+    kopf = "nachname\tvorname\tgeburtsdatum\tbetrieb\tbetrieb_email"
+    aus = [kopf]
+    for z in zeilen:
+        aus.append(
+            "\t".join([
+                z["nachname"],
+                z["vorname"],
+                z["geburtsdatum"].isoformat() if z["geburtsdatum"] else "",
+                z["betrieb"] or "",
+                z["betrieb_email"] or "",
+            ])
+        )
+    return "\n".join(aus)
+
+
+@bp.route("/import-nobo/<int:klasse_id>/anlegen", methods=["POST"])
+def importieren_nobo_anlegen(klasse_id):
+    klasse = Klasse.query.get_or_404(klasse_id)
+    text = request.form.get("csv_text", "")
+
+    angelegt = uebersprungen = 0
+    for roh in text.split("\n")[1:]:  # erste Zeile ist der Kopf aus _nobo_wieder_text
+        if not roh.strip():
+            continue
+        teile = (roh.split("\t") + [""] * 5)[:5]
+        nachname, vorname, geburtsdatum_s, betrieb_name, betrieb_email = (t.strip() for t in teile)
+        if not nachname or not vorname:
+            continue
+        if _schon_in_klasse(nachname, vorname, klasse.id):
+            uebersprungen += 1
+            continue
+
+        betrieb = None
+        if betrieb_name:
+            betrieb = Betrieb.query.filter(
+                db.func.lower(Betrieb.name) == betrieb_name.lower()
+            ).first()
+            if betrieb is None:
+                betrieb = Betrieb(name=betrieb_name, email=betrieb_email or None)
+                db.session.add(betrieb)
+                db.session.flush()
+            elif betrieb_email and not betrieb.email:
+                betrieb.email = betrieb_email
+
+        schueler = Schueler(
+            nachname=nachname,
+            vorname=vorname,
+            geburtsdatum=date.fromisoformat(geburtsdatum_s) if geburtsdatum_s else None,
+            betrieb_id=betrieb.id if betrieb else None,
+        )
+        db.session.add(schueler)
+        db.session.flush()
+        db.session.add(
+            SchuelerKlasse(schueler_id=schueler.id, klasse_id=klasse.id, von=date.today(), bis=None)
+        )
+        angelegt += 1
+
+    db.session.commit()
+    flash(
+        f"{angelegt} SuS importiert (inkl. Betrieb)"
+        + (f", {uebersprungen} übersprungen (schon in der Klasse)" if uebersprungen else "") + ".",
         "success",
     )
     return redirect(url_for("schueler.liste", klasse_id=klasse.id))

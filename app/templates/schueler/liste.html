@@ -5,7 +5,8 @@
         <h1>Schülerinnen und Schüler</h1>
         <div class="table-actions">
             {% if gewaehlte_klasse_id %}
-                <a class="button button--secondary" href="{{ url_for('schueler.importieren', klasse_id=gewaehlte_klasse_id) }}">CSV-Import</a>
+                <a class="button button--secondary" href="{{ url_for('schueler.importieren', klasse_id=gewaehlte_klasse_id) }}">CSV-Import (Untis)</a>
+                <a class="button button--secondary" href="{{ url_for('schueler.importieren_nobo', klasse_id=gewaehlte_klasse_id) }}">CSV-Import (NOBO)</a>
             {% endif %}
             <a class="button" href="{{ url_for('schueler.neu') }}">+ SuS anlegen</a>
         </div>

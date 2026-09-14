@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Betriebe importieren – Admin – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>Betriebe importieren</h1>
+    <p class="hinweis">
+        CSV/TSV mit Spalte <code>Name</code> (bzw. <code>Betrieb</code>), optional
+        <code>Ansprechpartner</code>, <code>E-Mail</code> (bzw. <code>Betrieb_Email</code>) und
+        <code>Telefon</code> – passt z.B. direkt auf den NOBO-Anmeldungen-Export.
+        Mehrfach vorkommende Betriebe (mehrere SuS im selben Betrieb) werden
+        automatisch zusammengefasst.
+    </p>
+
+    <form method="post" class="form" enctype="multipart/form-data">
+        <div class="form__field">
+            <label for="csv_datei">CSV-/TSV-Datei</label>
+            <input type="file" id="csv_datei" name="csv_datei" accept=".csv,.txt,.tsv,text/csv" required>
+        </div>
+        <div class="form__actions">
+            <button type="submit">Vorschau</button>
+            <a class="button button--secondary" href="{{ url_for('admin.betrieb_liste') }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}

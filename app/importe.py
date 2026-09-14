@@ -113,6 +113,144 @@ def parse_sus_liste(rohdaten: bytes) -> tuple[list[dict], list[str]]:
     return zeilen, warnungen
 
 
+# Spaltenueberschriften fuer den Betriebe-Import - eigenes schlankes Format
+# (Spalten name/ansprechpartner/email/telefon) ODER der NOBO-Anmeldungen-Export,
+# der Betrieb-Spalten je SuS-Zeile mitfuehrt.
+BETRIEB_SPALTEN = {
+    "name": ("name", "betrieb", "firma"),
+    "ansprechpartner": ("ansprechpartner",),
+    "email": ("email", "e-mail", "betrieb_email", "betrieb-email"),
+    "telefon": ("telefon", "tel"),
+}
+
+
+def parse_betriebe_liste(rohdaten: bytes) -> tuple[list[dict], list[str]]:
+    """Liest eine Betriebe-CSV. Dedupliziert nach Name (case-insensitiv) - im
+    NOBO-Export z.B. kommt derselbe Betrieb ueber mehrere SuS-Zeilen vor. Gibt
+    (zeilen, warnungen) zurueck; jede Zeile: name, ansprechpartner, email,
+    telefon, fehler(list)."""
+    text = _decode(rohdaten).replace("\r\n", "\n").replace("\r", "\n")
+    rohzeilen = [z for z in text.split("\n") if z.strip()]
+    if not rohzeilen:
+        return [], ["Die Datei ist leer."]
+
+    trenner = ";" if ";" in rohzeilen[0] else ("\t" if "\t" in rohzeilen[0] else ",")
+    kopf = [z.strip().lower().strip('"') for z in rohzeilen[0].split(trenner)]
+
+    def spalte(feld):
+        for name in BETRIEB_SPALTEN[feld]:
+            if name in kopf:
+                return kopf.index(name)
+        return None
+
+    idx = {feld: spalte(feld) for feld in BETRIEB_SPALTEN}
+    if idx["name"] is None:
+        return [], [
+            "Spalte 'Name' (bzw. 'Betrieb') nicht gefunden – bitte eine Kopfzeile "
+            "mit dieser Spalte verwenden."
+        ]
+
+    def wert(felder, feld):
+        i = idx[feld]
+        if i is None or i >= len(felder):
+            return ""
+        return felder[i].strip().strip('"')
+
+    gesehen: dict[str, dict] = {}
+    for roh in rohzeilen[1:]:
+        felder = roh.split(trenner)
+        name = wert(felder, "name")
+        if not name or name.lower() in gesehen:
+            continue
+        gesehen[name.lower()] = {
+            "name": name,
+            "ansprechpartner": wert(felder, "ansprechpartner") or None,
+            "email": wert(felder, "email") or None,
+            "telefon": wert(felder, "telefon") or None,
+            "fehler": [],
+        }
+
+    zeilen = list(gesehen.values())
+    warnungen = [] if zeilen else ["Keine Datenzeilen gefunden."]
+    return zeilen, warnungen
+
+
+# Spaltenueberschriften fuer den NOBO-Anmeldungen-Export (Online-Anmeldetool der
+# Schule) - eine Zeile je SuS inkl. des zugeordneten Ausbildungsbetriebs.
+NOBO_SPALTEN = {
+    "nachname": ("nachname",),
+    "vorname": ("vorname",),
+    "geburtsdatum": ("geburtsdatum",),
+    "betrieb": ("betrieb",),
+    "betrieb_email": ("betrieb_email",),
+}
+
+
+def parse_nobo_anmeldungen(rohdaten: bytes) -> tuple[list[dict], list[str]]:
+    """Liest den NOBO-Anmeldungen-Export (Semikolon-getrennt). Andere Spalten
+    des Exports (beruf, zug, strasse, plz, ort, status, ...) werden bewusst
+    ignoriert - dafuer gibt es aktuell keine passenden Felder im Modell. Gibt
+    (zeilen, warnungen) zurueck; jede Zeile: nachname, vorname, geburtsdatum,
+    betrieb, betrieb_email, fehler(list)."""
+    text = _decode(rohdaten).replace("\r\n", "\n").replace("\r", "\n")
+    rohzeilen = [z for z in text.split("\n") if z.strip()]
+    if not rohzeilen:
+        return [], ["Die Datei ist leer."]
+
+    trenner = ";" if ";" in rohzeilen[0] else ("\t" if "\t" in rohzeilen[0] else ",")
+    kopf = [z.strip().lower().strip('"') for z in rohzeilen[0].split(trenner)]
+
+    def spalte(feld):
+        for name in NOBO_SPALTEN[feld]:
+            if name in kopf:
+                return kopf.index(name)
+        return None
+
+    idx = {feld: spalte(feld) for feld in NOBO_SPALTEN}
+    if idx["nachname"] is None or idx["vorname"] is None:
+        return [], [
+            "Spalten 'nachname'/'vorname' nicht gefunden – ist das der richtige "
+            "NOBO-Anmeldungen-Export?"
+        ]
+
+    def wert(felder, feld):
+        i = idx[feld]
+        if i is None or i >= len(felder):
+            return ""
+        return felder[i].strip().strip('"')
+
+    zeilen: list[dict] = []
+    warnungen: list[str] = []
+    for nr, roh in enumerate(rohzeilen[1:], start=2):
+        felder = roh.split(trenner)
+        nachname = wert(felder, "nachname")
+        vorname = wert(felder, "vorname")
+        if not nachname and not vorname:
+            continue
+
+        fehler = []
+        if not nachname or not vorname:
+            fehler.append("Nach- oder Vorname fehlt")
+
+        geburtsdatum_roh = wert(felder, "geburtsdatum")
+        geburtsdatum = _datum(geburtsdatum_roh)
+        if geburtsdatum_roh and geburtsdatum is None:
+            warnungen.append(f"Zeile {nr}: Geburtsdatum unlesbar, wird leer gelassen.")
+
+        zeilen.append({
+            "nachname": nachname,
+            "vorname": vorname,
+            "geburtsdatum": geburtsdatum,
+            "betrieb": wert(felder, "betrieb") or None,
+            "betrieb_email": wert(felder, "betrieb_email") or None,
+            "fehler": fehler,
+        })
+
+    if not zeilen:
+        warnungen.append("Keine Datenzeilen gefunden.")
+    return zeilen, warnungen
+
+
 # Spaltenueberschriften fuer den Klausur-/Notenimport einer Kategorie
 KLAUSUR_SPALTEN = {
     "nachname": ("langname", "nachname", "name"),

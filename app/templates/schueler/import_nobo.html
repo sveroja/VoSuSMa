@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}SuS importieren (NOBO) – {{ klasse.bezeichnung }} – VoSuSMa{% endblock %}
+{% block content %}
+    <h1>SuS importieren (NOBO-Anmeldungen) – {{ klasse.bezeichnung }}</h1>
+    <p class="hinweis">
+        Export aus dem NOBO-Anmeldetool (Semikolon-getrennt). Erwartete Spalten:
+        <code>nachname</code>, <code>vorname</code>, optional <code>geburtsdatum</code>,
+        <code>betrieb</code>, <code>betrieb_email</code>. Ein zugeordneter Betrieb wird
+        automatisch angelegt bzw. wiederverwendet (Abgleich über den Namen). Importiert
+        wird in <strong>{{ klasse.bezeichnung }}</strong>.
+    </p>
+
+    <form method="post" class="form" enctype="multipart/form-data">
+        <div class="form__field">
+            <label for="csv_datei">CSV-Datei</label>
+            <input type="file" id="csv_datei" name="csv_datei" accept=".csv,.txt,text/csv" required>
+        </div>
+        <div class="form__actions">
+            <button type="submit">Vorschau</button>
+            <a class="button button--secondary" href="{{ url_for('schueler.liste', klasse_id=klasse.id) }}">Abbrechen</a>
+        </div>
+    </form>
+{% endblock %}

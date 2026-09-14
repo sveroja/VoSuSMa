@@ -4,6 +4,7 @@
     <div class="page-header">
         <h1>Klassendienste – {{ klasse.bezeichnung }}</h1>
         <div class="table-actions">
+            <a class="button button--secondary" href="{{ url_for('gruppen.liste', klasse_id=klasse.id) }}">Gruppen</a>
             <a class="button button--secondary" href="{{ url_for('dienste.drucken', klasse_id=klasse.id) }}" target="_blank">Drucken / PDF</a>
             <a class="button button--secondary" href="{{ url_for('klassen.liste', klasse_id=klasse.id) }}">← Klasse</a>
         </div>
@@ -19,6 +20,9 @@
             <label>bis
                 <input type="date" name="bis" required>
             </label>
+            {% if gruppen_fair_moeglich %}
+                <label><input type="checkbox" name="gruppen_fair" checked> je Dienst aus zwei Gruppen paaren</label>
+            {% endif %}
             <button type="submit" style="align-self:flex-end">Diensttage einplanen</button>
         </form>
         <p class="hinweis">
@@ -26,6 +30,11 @@
             und – falls für diese Klasse gepflegt – Nicht-Block-Wochen
             (<a href="{{ url_for('admin.blockplan') }}">Blockplanung</a>). Reihum, fair nach bisheriger
             Diensthäufigkeit. Bereits belegte Tage bleiben unverändert.
+            {% if gruppen_fair_moeglich %}
+                Bei „je Dienst aus zwei Gruppen paaren" stammen die beiden SuS eines Diensttags
+                aus unterschiedlichen <a href="{{ url_for('gruppen.liste', klasse_id=klasse.id) }}">Gruppen</a>
+                (z.B. Kohorte A + Kohorte B).
+            {% endif %}
         </p>
 
         <details style="margin-bottom:1.5rem">

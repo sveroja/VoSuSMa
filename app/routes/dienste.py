@@ -2,7 +2,13 @@ from datetime import date, timedelta
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from app.dienst_service import aktive_schueler, dienst_uebersicht, hinweistext, rota_generieren
+from app.dienst_service import (
+    aktive_schueler,
+    dienst_uebersicht,
+    gruppen_fair_moeglich,
+    hinweistext,
+    rota_generieren,
+)
 from app.extensions import db
 from app.models import Klasse, Klassendienst
 
@@ -23,6 +29,7 @@ def liste(klasse_id):
         hinweis=hinweistext(klasse),
         heute=date.today().isoformat(),
         leere_zeilen=range(_LEERE_NEUE_ZEILEN),
+        gruppen_fair_moeglich=gruppen_fair_moeglich(klasse),
     )
 
 
@@ -43,7 +50,8 @@ def generieren(klasse_id):
         flash("Zeitraum darf höchstens ein Jahr umfassen.", "error")
         return redirect(url_for("dienste.liste", klasse_id=klasse.id))
 
-    angelegt = rota_generieren(klasse, von, bis)
+    gruppen_fair = request.form.get("gruppen_fair") == "on"
+    angelegt = rota_generieren(klasse, von, bis, gruppen_fair=gruppen_fair)
     if angelegt:
         db.session.commit()
         flash(f"{angelegt} neue Diensttage eingeplant.", "success")

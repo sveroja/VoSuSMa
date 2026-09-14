@@ -27,6 +27,7 @@ from app.lernfeld_service import lernfelder_aus_vorlagen
 from app.models import (
     Betrieb,
     Bildungsgang,
+    Gruppe,
     Klasse,
     Lernfeld,
     Lernfeldvorlage,
@@ -36,6 +37,7 @@ from app.models import (
     Schueler,
     SchuelerKlasse,
     VorlageGewichtung,
+    schueler_gruppen,
 )
 from app.stammdaten import STANDARD_NOTENKATEGORIEN
 
@@ -105,6 +107,10 @@ def _raeume_fake_daten_auf():
     Notenereintrag.query.delete()
     NotenkategorieGewichtung.query.delete()
     Lernfeld.query.delete()
+    # schueler_gruppen ist eine reine Zuordnungstabelle (kein Modell) - bulk
+    # delete() auf Gruppe raeumt sie nicht mit auf, darum hier explizit zuerst.
+    db.session.execute(schueler_gruppen.delete())
+    Gruppe.query.delete()
     SchuelerKlasse.query.delete()
     Schueler.query.delete()
     Betrieb.query.delete()
@@ -214,7 +220,14 @@ def seed():
         for lernfeld in klasse.lernfelder:
             _TERMINE_JE_LERNFELD[lernfeld.id] = _termine_fuer_lernfeld()
 
-        for _ in range(random.randint(15, 22)):
+        # Kohorte A/B als Beispiel fuer Gruppen (Differenzierung, z.B.
+        # gruppenuebergreifende Klassendienst-Paarung).
+        gruppe_a = Gruppe(klasse_id=klasse.id, name="Kohorte A")
+        gruppe_b = Gruppe(klasse_id=klasse.id, name="Kohorte B")
+        db.session.add_all([gruppe_a, gruppe_b])
+        db.session.flush()
+
+        for i in range(random.randint(15, 22)):
             geschlecht = random.choices(["w", "m", "d"], weights=[48, 48, 4])[0]
             vorname = fake.first_name_female() if geschlecht == "w" else (
                 fake.first_name_male() if geschlecht == "m" else fake.first_name()
@@ -238,6 +251,7 @@ def seed():
             db.session.add(SchuelerKlasse(
                 schueler_id=schueler.id, klasse_id=klasse.id, von=date(2025, 8, 1), bis=None,
             ))
+            (gruppe_a if i % 2 == 0 else gruppe_b).mitglieder.append(schueler)
             for lernfeld in klasse.lernfelder:
                 _noten_fuer(schueler, lernfeld, kategorien)
 

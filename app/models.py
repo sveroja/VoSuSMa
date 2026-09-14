@@ -146,6 +146,10 @@ class Klasse(db.Model):
     blockwochen = db.relationship(
         "Blockwoche", back_populates="klasse", cascade="all, delete-orphan"
     )
+    gruppen = db.relationship(
+        "Gruppe", back_populates="klasse", cascade="all, delete-orphan",
+        order_by="Gruppe.name",
+    )
 
     @property
     def anzahl_schueler(self):
@@ -173,6 +177,9 @@ class Schueler(db.Model):
     betrieb = db.relationship("Betrieb", back_populates="schueler")
     klassen_zuordnungen = db.relationship(
         "SchuelerKlasse", back_populates="schueler", cascade="all, delete-orphan"
+    )
+    gruppen = db.relationship(
+        "Gruppe", secondary="schueler_gruppen", back_populates="mitglieder"
     )
 
     @property
@@ -212,6 +219,37 @@ class SchuelerKlasse(db.Model):
         """SQL-Filter fuer aktive Zuordnungen (bis offen oder in der Zukunft)."""
         stichtag = stichtag or date.today()
         return db.or_(cls.bis.is_(None), cls.bis >= stichtag)
+
+
+# n:m zwischen Schueler und Gruppe - reine Zuordnungstabelle, kein eigenes Modell.
+schueler_gruppen = db.Table(
+    "schueler_gruppen",
+    db.Column("schueler_id", db.Integer, db.ForeignKey("schueler.id"), primary_key=True),
+    db.Column("gruppe_id", db.Integer, db.ForeignKey("gruppen.id"), primary_key=True),
+)
+
+
+class Gruppe(db.Model):
+    """Frei benennbare Untergruppe innerhalb einer Klasse (z.B. Kohorte A/B,
+    Projektteam) - Grundlage fuer Differenzierung, u.a. die gruppenuebergreifende
+    Klassendienst-Paarung (siehe dienst_service.rota_generieren)."""
+    __tablename__ = "gruppen"
+
+    id = db.Column(db.Integer, primary_key=True)
+    klasse_id = db.Column(db.Integer, db.ForeignKey("klassen.id"), nullable=False)
+    name = db.Column(db.String(80), nullable=False)
+
+    klasse = db.relationship("Klasse", back_populates="gruppen")
+    mitglieder = db.relationship(
+        "Schueler", secondary=schueler_gruppen, back_populates="gruppen"
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint("klasse_id", "name", name="uq_gruppe_klasse_name"),
+    )
+
+    def __repr__(self):
+        return f"<Gruppe {self.name}>"
 
 
 class Lernfeld(_LernfeldNamen, db.Model):

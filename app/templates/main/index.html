@@ -16,6 +16,10 @@
     <nav class="quick-links">
         <a class="button" href="{{ url_for('klassen.liste') }}">Klassen verwalten</a>
         <a class="button button--secondary" href="{{ url_for('admin.klassen_liste') }}">Klasse anlegen</a>
+        <form method="post" action="{{ url_for('main.beenden') }}"
+              onsubmit="return confirm('VoSuSMa wirklich beenden?');" style="display:inline">
+            <button type="submit" class="button button--secondary">VoSuSMa beenden</button>
+        </form>
     </nav>
 
     {% if screensaver_verfuegbar %}

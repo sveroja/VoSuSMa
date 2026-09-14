@@ -24,6 +24,7 @@
                 <h2>Lernfelder – {{ gewaehlte.bezeichnung }}</h2>
                 <div class="table-actions">
                     <a class="button button--secondary" href="{{ url_for('schueler.liste', klasse_id=gewaehlte.id) }}">SuS</a>
+                    <a class="button button--secondary" href="{{ url_for('gruppen.liste', klasse_id=gewaehlte.id) }}">Gruppen</a>
                     <a class="button button--secondary" href="{{ url_for('dienste.liste', klasse_id=gewaehlte.id) }}">Klassendienste</a>
                     <a class="button" href="{{ url_for('lernfelder.neu', klasse_id=gewaehlte.id) }}">+ Lernfeld anlegen</a>
                 </div>

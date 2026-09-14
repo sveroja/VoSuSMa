@@ -56,13 +56,14 @@ if not exist ".venv\Scripts\python.exe" (
     call ".venv\Scripts\activate.bat"
 )
 
-echo Starte Server ...
-echo Falls sich hier laenger als ca. 30 Sekunden nichts tut: VoSuSMa liegt
-echo vermutlich auf einem Netzlaufwerk (\\...), und Windows braucht nach einem
-echo vorherigen unsauberen Beenden manchmal etwas, um die Dateisperren dafuer
-echo freizugeben. Kurz warten reicht meist - im Zweifel Fenster schliessen und
-echo nochmal per Doppelklick starten.
-python start.py
+rem pythonw.exe statt python.exe: kein Konsolenfenster/Taskleisten-Eintrag fuer
+rem den laufenden Server. "start """" ... " loest den Prozess vom Batch ab, das
+rem Fenster hier schliesst sich sofort - Beenden laeuft ueber die Aktion
+rem "VoSuSMa beenden" auf der Startseite (kein Strg+C ohne Konsole moeglich).
+rem Meldungen/Fehler stehen in instance\start.log; falls VoSuSMa gar nicht
+rem erreichbar wird, dort nachsehen.
+echo Starte VoSuSMa im Hintergrund ...
+start "" ".venv\Scripts\pythonw.exe" "%~dp0start.py"
 
 popd
-pause
+exit /b 0

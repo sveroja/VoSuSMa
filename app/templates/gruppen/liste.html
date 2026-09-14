@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Gruppen – {{ klasse.bezeichnung }} – VoSuSMa{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Gruppen – {{ klasse.bezeichnung }}</h1>
+        <div class="table-actions">
+            <a class="button button--secondary" href="{{ url_for('dienste.liste', klasse_id=klasse.id) }}">← Klassendienste</a>
+            <a class="button button--secondary" href="{{ url_for('klassen.liste', klasse_id=klasse.id) }}">← Klasse</a>
+        </div>
+    </div>
+    <p class="hinweis">
+        Frei benennbare Untergruppen innerhalb der Klasse (z.B. Kohorte A/B, Projektteams).
+        Werden u.a. bei den <a href="{{ url_for('dienste.liste', klasse_id=klasse.id) }}">Klassendiensten</a>
+        genutzt, um Dienste gezielt aus zwei Gruppen zu paaren.
+    </p>
+
+    <form method="post" action="{{ url_for('gruppen.neu', klasse_id=klasse.id) }}" class="bulk-kopf">
+        <label>Neue Gruppe
+            <input type="text" name="name" maxlength="80" placeholder="z.B. Kohorte A" required>
+        </label>
+        <button type="submit" style="align-self:flex-end">Anlegen</button>
+    </form>
+
+    {% if not schueler %}
+        <p class="empty-state">In dieser Klasse sind aktuell keine SuS aktiv.</p>
+    {% elif not gruppen %}
+        <p class="empty-state">Noch keine Gruppen angelegt.</p>
+    {% else %}
+        <form method="post" action="{{ url_for('gruppen.mitglieder_speichern', klasse_id=klasse.id) }}">
+            <div class="matrix-wrap">
+                <table class="matrix">
+                    <thead>
+                        <tr>
+                            <th>SuS</th>
+                            {% for gruppe in gruppen %}
+                                <th>
+                                    {{ gruppe.name }}
+                                    <form method="post" action="{{ url_for('gruppen.loeschen', klasse_id=klasse.id, gruppe_id=gruppe.id) }}"
+                                          onsubmit="return confirm('Gruppe „{{ gruppe.name }}“ wirklich löschen?');" style="display:inline">
+                                        <button type="submit" class="action-link">löschen</button>
+                                    </form>
+                                </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in schueler %}
+                            <tr>
+                                <td>{{ s.nachname }}, {{ s.vorname }}</td>
+                                {% for gruppe in gruppen %}
+                                    <td style="text-align:center">
+                                        <input type="checkbox" name="gruppe_{{ gruppe.id }}" value="{{ s.id }}"
+                                               {% if gruppe.id in gruppen_je_schueler.get(s.id, []) %}checked{% endif %}>
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="form__actions" style="margin-top:1rem">
+                <button type="submit">Speichern</button>
+            </div>
+        </form>
+    {% endif %}
+{% endblock %}

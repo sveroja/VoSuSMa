@@ -1,3 +1,6 @@
+import os
+import threading
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app import screensaver
@@ -64,3 +67,12 @@ def bildschirmschoner_umschalten():
     if not wirkt:
         flash("Bildschirmschoner-Schalter wird nur unter Windows unterstützt.", "error")
     return redirect(url_for("main.index"))
+
+
+@bp.route("/beenden", methods=["POST"])
+def beenden():
+    """Sauberes Beenden per Klick statt Strg+C - noetig, weil der Server ohne
+    sichtbares Konsolenfenster laeuft (siehe start.py/start_windows.bat).
+    Antwort erst ausliefern, dann den Prozess hart beenden."""
+    threading.Timer(0.5, lambda: os._exit(0)).start()
+    return render_template("main/beenden.html")
