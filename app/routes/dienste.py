@@ -6,6 +6,7 @@ from app.dienst_service import (
     aktive_schueler,
     dienst_uebersicht,
     gruppen_fair_moeglich,
+    gruppen_label_je_schueler,
     hinweistext,
     rota_generieren,
 )
@@ -30,6 +31,7 @@ def liste(klasse_id):
         heute=date.today().isoformat(),
         leere_zeilen=range(_LEERE_NEUE_ZEILEN),
         gruppen_fair_moeglich=gruppen_fair_moeglich(klasse),
+        gruppen_label=gruppen_label_je_schueler(klasse),
     )
 
 

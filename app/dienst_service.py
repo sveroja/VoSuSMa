@@ -60,6 +60,18 @@ def gruppen_fair_moeglich(klasse) -> bool:
     return gruppen_mit_mitgliedern >= 2
 
 
+def gruppen_label_je_schueler(klasse) -> dict[int, str]:
+    """schueler_id -> ", "-getrennte Namen aller Gruppen der Klasse, denen die
+    Person angehoert - fuer die Anzeige in Auswahllisten (z.B. den
+    Klassendienst-Dropdowns), damit die Gruppenzugehoerigkeit dort auf einen
+    Blick sichtbar ist. SuS ohne Gruppe fehlen im dict."""
+    namen_je_schueler: dict[int, list[str]] = {}
+    for gruppe in klasse.gruppen:
+        for mitglied in gruppe.mitglieder:
+            namen_je_schueler.setdefault(mitglied.id, []).append(gruppe.name)
+    return {sid: ", ".join(namen) for sid, namen in namen_je_schueler.items()}
+
+
 def _gruppe_je_schueler(klasse) -> dict[int, int]:
     """schueler_id -> gruppe_id, je erste zugeordnete Gruppe der Klasse. SuS ohne
     Gruppe fehlen im dict (gelten beim Paaren als eigene, gemeinsame "Gruppe")."""
