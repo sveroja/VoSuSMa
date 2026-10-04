@@ -28,40 +28,30 @@
         </label>
     </form>
 
-    {% if gewaehlte_klasse_id %}
-        {% macro mail_button(adressen, text) -%}
-            {%- if adressen -%}
-                <a class="button button--secondary" href="mailto:?bcc={{ adressen | join(',') }}"
-                   title="{{ adressen | length }} Adresse(n) ins BCC – Nachricht schreibst du im Mailprogramm">{{ text }} ({{ adressen | length }})</a>
-                <button type="button" class="action-link" data-adressen="{{ adressen | join('; ') }}"
-                        onclick="adressenKopieren(this)" title="Adressen in die Zwischenablage (falls der Mail-Link zu lang ist)">kopieren</button>
-            {%- else -%}
-                <span class="button button--secondary" aria-disabled="true" title="keine Adressen hinterlegt">{{ text }} (0)</span>
-            {%- endif -%}
-        {%- endmacro %}
-        <p class="table-actions mail-aktionen">
-            {{ mail_button(mail_sus, "Mail an SuS") }}
-            {{ mail_button(mail_betriebe, "Mail an Betriebe") }}
-        </p>
-        {% if (mail_sus | join(',') | length) > 1800 or (mail_betriebe | join(',') | length) > 1800 %}
-            <p class="hinweis">Sehr viele Adressen – falls sich das Mailprogramm nicht öffnet: „kopieren“ und ins BCC einfügen.</p>
-        {% endif %}
-        <script>
-            function adressenKopieren(knopf) {
-                navigator.clipboard.writeText(knopf.dataset.adressen).then(function () {
-                    var alt = knopf.textContent;
-                    knopf.textContent = "kopiert ✓";
-                    setTimeout(function () { knopf.textContent = alt; }, 1500);
-                });
-            }
-        </script>
+    {% set mailwahl = gewaehlte_klasse_id and schueler_liste %}
+    {% if mailwahl %}
+        <div class="table-actions mail-aktionen">
+            <button type="button" class="button button--secondary" id="mail-sus" onclick="mailOeffnen('sus')"
+                    title="Angehakte SuS ins BCC – Nachricht schreibst du im Mailprogramm">Mail an SuS (<span id="anzahl-sus">0</span>)</button>
+            <button type="button" class="action-link" onclick="adressenKopieren('sus', this)"
+                    title="Adressen in die Zwischenablage (falls sich das Mailprogramm nicht öffnet)">kopieren</button>
+            <button type="button" class="button button--secondary" id="mail-betriebe" onclick="mailOeffnen('betrieb')"
+                    title="Betriebe der angehakten SuS ins BCC (jede Adresse nur einmal)">Mail an Betriebe (<span id="anzahl-betrieb">0</span>)</button>
+            <button type="button" class="action-link" onclick="adressenKopieren('betrieb', this)"
+                    title="Adressen in die Zwischenablage (falls sich das Mailprogramm nicht öffnet)">kopieren</button>
+        </div>
+        <p class="hinweis" id="mail-hinweis" hidden>Sehr viele Adressen – falls sich das Mailprogramm nicht öffnet: „kopieren“ und ins BCC einfügen.</p>
     {% endif %}
-
     {% if schueler_liste %}
         <div class="matrix-wrap">
             <table>
                 <thead>
                     <tr>
+                        {% if mailwahl %}
+                            <th class="spalte-wahl" title="Auswahl für „Mail an SuS“ / „Mail an Betriebe“">
+                                <input type="checkbox" id="mail-alle" checked aria-label="alle auswählen">
+                            </th>
+                        {% endif %}
                         <th>Nachname</th>
                         <th>Vorname</th>
                         <th>Klasse</th>
@@ -74,6 +64,13 @@
                 <tbody>
                     {% for schueler, klasse in schueler_liste %}
                         <tr>
+                            {% if mailwahl %}
+                                <td class="spalte-wahl">
+                                    <input type="checkbox" class="mail-wahl" checked
+                                           data-sus="{{ schueler.email or '' }}" data-betrieb="{{ schueler.betrieb_mail_anzeige or '' }}"
+                                           aria-label="{{ schueler.nachname }}, {{ schueler.vorname }} anschreiben">
+                                </td>
+                            {% endif %}
                             <td><a href="{{ url_for('schueler.detail', schueler_id=schueler.id) }}">{{ schueler.nachname }}</a></td>
                             <td>{{ schueler.vorname }}</td>
                             <td>{{ klasse.bezeichnung if klasse else "–" }}</td>
@@ -91,5 +88,54 @@
         </div>
     {% else %}
         <p class="empty-state">Keine SuS gefunden.</p>
+    {% endif %}
+    {% if mailwahl %}
+    <script>
+        // Mail-Auswahl: angehakte Zeilen -> BCC-Liste (dedupliziert, leere raus)
+        var wahl = Array.prototype.slice.call(document.querySelectorAll(".mail-wahl"));
+        var alle = document.getElementById("mail-alle");
+
+        function adressen(art) {
+            var liste = [];
+            wahl.forEach(function (cb) {
+                var a = cb.checked && cb.dataset[art];
+                if (a && liste.indexOf(a) < 0) liste.push(a);
+            });
+            return liste;
+        }
+
+        function aktualisieren() {
+            var sus = adressen("sus"), betrieb = adressen("betrieb");
+            document.getElementById("anzahl-sus").textContent = sus.length;
+            document.getElementById("anzahl-betrieb").textContent = betrieb.length;
+            document.getElementById("mail-sus").disabled = !sus.length;
+            document.getElementById("mail-betriebe").disabled = !betrieb.length;
+            document.getElementById("mail-hinweis").hidden =
+                Math.max(sus.join(",").length, betrieb.join(",").length) <= 1800;
+            var an = wahl.filter(function (cb) { return cb.checked; }).length;
+            alle.checked = an === wahl.length;
+            alle.indeterminate = an > 0 && an < wahl.length;
+        }
+
+        function mailOeffnen(art) {
+            var liste = adressen(art);
+            if (liste.length) window.location.href = "mailto:?bcc=" + liste.join(",");
+        }
+
+        function adressenKopieren(art, knopf) {
+            navigator.clipboard.writeText(adressen(art).join("; ")).then(function () {
+                var alt = knopf.textContent;
+                knopf.textContent = "kopiert ✓";
+                setTimeout(function () { knopf.textContent = alt; }, 1500);
+            });
+        }
+
+        alle.addEventListener("change", function () {
+            wahl.forEach(function (cb) { cb.checked = alle.checked; });
+            aktualisieren();
+        });
+        wahl.forEach(function (cb) { cb.addEventListener("change", aktualisieren); });
+        aktualisieren();
+    </script>
     {% endif %}
 {% endblock %}

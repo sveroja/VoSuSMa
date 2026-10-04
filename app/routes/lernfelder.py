@@ -647,7 +647,17 @@ def klausur_import(klasse_id, lernfeld_id):
             continue
         s = nach_name.get((z["nachname"].lower(), z["vorname"].lower()))
         if s is None:
+            # manuelle Zuordnung per Dropdown in der Vorschau (z.B. anderer Name in Moodle)
+            if z["nachschreiben"]:
+                z["wert_tsv"] = "na"
+            else:
+                _num, wfehler = _wert_pruefen(z["wert"], ist_punkte)
+                if wfehler:
+                    z["status"] = f"kein SuS-Treffer, ungültig ({wfehler})"
+                    continue
+                z["wert_tsv"] = z["wert"]
             z["status"] = "kein SuS-Treffer in der Klasse"
+            z["zuordnen"] = True
             continue
         z["schueler"] = s
         if z["nachschreiben"]:
@@ -694,6 +704,8 @@ def klausur_import(klasse_id, lernfeld_id):
         klasse=klasse, lernfeld=lernfeld, kategorie=kategorie, ist_punkte=ist_punkte,
         zeilen=zeilen, anzahl_ok=len(treffer),
         anzahl_nachschreiben=len(nachschreiben) + len(fehlende),
+        anzahl_zuordnen=sum(1 for z in zeilen if z.get("zuordnen")),
+        zuordnung_kandidaten=fehlende,  # noch keiner CSV-Zeile zugeordnete SuS
         max_punkte=max_punkte, max_aus_csv=max_aus_csv,
         hidden={
             "kategorie_id": kategorie.id,
@@ -727,18 +739,40 @@ def klausur_import_anlegen(klasse_id, lernfeld_id):
     bezeichnung = request.form.get("bezeichnung", "").strip() or None
     nachschreiben_eintragen = request.form.get("nachschreiben_eintragen") == "on"
 
-    gespeichert = nachschreiben = 0
+    werte = {}  # schueler_id -> Rohwert ("na" = nachschreiben)
     for roh in request.form.get("tsv", "").split("\n")[1:]:
-        if not roh.strip():
-            continue
         teile = roh.split("\t")
-        if len(teile) != 2 or not teile[0].isdigit():
+        if len(teile) == 2 and teile[0].isdigit():
+            werte[int(teile[0])] = teile[1].strip()
+
+    # Manuelle Zuordnungen aus der Vorschau (zuordnung_<i> = schueler_id, zwert_<i> = Wert):
+    # ersetzen den "nachschreiben"-Platzhalter der gewählten SuS.
+    erlaubte_sus = {s.id for s in _aktive_schueler(lernfeld.klasse)}
+    doppelt = []
+    for key in request.form:
+        if not key.startswith("zuordnung_"):
             continue
+        sid_roh = request.form[key].strip()
+        if not sid_roh.isdigit() or int(sid_roh) not in erlaubte_sus:
+            continue
+        sid = int(sid_roh)
+        wert = request.form.get("zwert_" + key[len("zuordnung_"):], "").strip()
+        if not wert:
+            continue
+        if sid in werte and not ist_na(werte[sid]):
+            doppelt.append(db.session.get(Schueler, sid).nachname)
+            continue
+        werte[sid] = wert
+    if doppelt:
+        flash("Mehrfach zugeordnet, nur erste Zeile übernommen: " + ", ".join(doppelt), "error")
+
+    gespeichert = nachschreiben = 0
+    for sid, wert in werte.items():
         eintrag = Notenereintrag(
-            schueler_id=int(teile[0]), lernfeld_id=lernfeld.id, kategorie_id=kategorie.id,
+            schueler_id=sid, lernfeld_id=lernfeld.id, kategorie_id=kategorie.id,
             datum=datum, bezeichnung=bezeichnung,
         )
-        if ist_na(teile[1]):
+        if ist_na(wert):
             # nicht mitgeschrieben -> "na"-Eintrag, erscheint in der Übersicht rot
             if not nachschreiben_eintragen:
                 continue
@@ -748,7 +782,7 @@ def klausur_import_anlegen(klasse_id, lernfeld_id):
             db.session.add(eintrag)
             nachschreiben += 1
             continue
-        num, wfehler = _wert_pruefen(teile[1], ist_punkte)
+        num, wfehler = _wert_pruefen(wert, ist_punkte)
         if wfehler:
             continue
         if ist_punkte:

@@ -12,11 +12,11 @@
 
     <table>
         <thead>
-            <tr><th>Nachname</th><th>Vorname</th><th>Wert</th><th>Status</th></tr>
+            <tr><th>Nachname</th><th>Vorname</th><th>Wert</th><th>Status</th>{% if anzahl_zuordnen %}<th title="CSV-Zeilen ohne Namenstreffer hier von Hand einer SuS der Klasse zuordnen">Zuordnung</th>{% endif %}</tr>
         </thead>
         <tbody>
             {% for z in zeilen %}
-                <tr>
+                <tr {% if z.fehlt_in_csv %}data-fehlt-sid="{{ z.schueler.id }}"{% endif %}>
                     <td>{{ z.nachname }}</td>
                     <td>{{ z.vorname }}</td>
                     {% if z.nachschreiben_markiert %}
@@ -33,12 +33,26 @@
                             <span class="badge badge--inaktiv">{{ z.status }}</span>
                         {% endif %}
                     </td>
+                    {% if anzahl_zuordnen %}
+                        <td>
+                            {% if z.zuordnen %}
+                                <input type="hidden" form="import-form" name="zwert_{{ loop.index0 }}" value="{{ z.wert_tsv }}">
+                                <select form="import-form" name="zuordnung_{{ loop.index0 }}" class="zuordnung-select"
+                                        aria-label="Zuordnung für {{ z.nachname }}, {{ z.vorname }}">
+                                    <option value="">– nicht übernehmen –</option>
+                                    {% for s in zuordnung_kandidaten %}
+                                        <option value="{{ s.id }}">{{ s.nachname }}, {{ s.vorname }}</option>
+                                    {% endfor %}
+                                </select>
+                            {% endif %}
+                        </td>
+                    {% endif %}
                 </tr>
             {% endfor %}
         </tbody>
     </table>
 
-    <form method="post" action="{{ url_for('lernfelder.klausur_import_anlegen', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}" style="margin-top:1.5rem">
+    <form id="import-form" method="post" action="{{ url_for('lernfelder.klausur_import_anlegen', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}" style="margin-top:1.5rem">
         {% for name, wert in hidden.items() %}
             {% if name == 'tsv' %}
                 <textarea name="tsv" hidden>{{ wert }}</textarea>
@@ -54,8 +68,37 @@
             </label>
         {% endif %}
         <div class="form__actions">
-            <button type="submit" {% if not anzahl_ok and not anzahl_nachschreiben %}disabled{% endif %}>{{ anzahl_ok }} Einträge übernehmen</button>
+            <button type="submit" {% if not anzahl_ok and not anzahl_nachschreiben and not anzahl_zuordnen %}disabled{% endif %}>{{ anzahl_ok }} Einträge übernehmen</button>
             <a class="button button--secondary" href="{{ url_for('lernfelder.uebersicht', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">Abbrechen</a>
         </div>
     </form>
+{% if anzahl_zuordnen %}
+    <script>
+        // Bereits gewählte SuS in den übrigen Dropdowns sperren und die
+        // "nicht in der CSV"-Zeile der gewählten SuS als zugeordnet kennzeichnen.
+        (function () {
+            var selects = document.querySelectorAll(".zuordnung-select");
+            function aktualisieren() {
+                var gewaehlt = {};
+                selects.forEach(function (s) { if (s.value) gewaehlt[s.value] = s; });
+                selects.forEach(function (s) {
+                    s.querySelectorAll("option").forEach(function (o) {
+                        o.disabled = !!o.value && !!gewaehlt[o.value] && gewaehlt[o.value] !== s;
+                    });
+                });
+                document.querySelectorAll("tr[data-fehlt-sid]").forEach(function (tr) {
+                    var zugeordnet = !!gewaehlt[tr.dataset.fehltSid];
+                    var badge = tr.querySelector(".badge");
+                    if (!badge.dataset.text) badge.dataset.text = badge.textContent;
+                    badge.textContent = zugeordnet ? "per Dropdown zugeordnet" : badge.dataset.text;
+                    badge.classList.toggle("badge--nachschreiben", !zugeordnet);
+                    badge.classList.toggle("badge--aktiv", zugeordnet);
+                    var zelle = tr.querySelector("td:nth-child(3)");
+                    zelle.classList.toggle("zelle--nachschreiben", !zugeordnet);
+                });
+            }
+            selects.forEach(function (s) { s.addEventListener("change", aktualisieren); });
+        })();
+    </script>
+    {% endif %}
 {% endblock %}

@@ -54,23 +54,12 @@ def liste():
         klassen_query = klassen_query.filter_by(aktiv=True)
     klassen = klassen_query.order_by(Klasse.aktiv.desc(), Klasse.bezeichnung).all()
 
-    # Massenmail (nur bei gefilterter Klasse): Adressen dedupliziert, leere raus
-    mail_sus, mail_betriebe = [], []
-    if gewaehlte is not None:
-        for s in schueler_liste:
-            if s.email and s.email not in mail_sus:
-                mail_sus.append(s.email)
-            if s.betrieb_mail_anzeige and s.betrieb_mail_anzeige not in mail_betriebe:
-                mail_betriebe.append(s.betrieb_mail_anzeige)
-
     return render_template(
         "schueler/liste.html",
         schueler_liste=[(s, _aktuelle_klasse(s)) for s in schueler_liste],
         klassen=klassen,
         gewaehlte_klasse_id=klasse_id,
         archiv=archiv,
-        mail_sus=mail_sus,
-        mail_betriebe=mail_betriebe,
     )
 
 
