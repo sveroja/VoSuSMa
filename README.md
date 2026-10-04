@@ -35,7 +35,10 @@ verknüpfen statt `start_windows.bat`.
    wirken nicht rückwirkend).
 4. **SuS** je Klasse per CSV-Import (Untis „LessonStudentList") oder einzeln.
 5. **Noten** je Lernfeld über die Klassen-Notenübersicht (Bulk-Dialog oder
-   CSV-Import: Note oder Punkte für die ganze Klasse).
+   CSV-Import: Note oder Punkte für die ganze Klasse; Moodle-Testexport mit
+   „Bewertung/100“ direkt lesbar, fehlende/„-“ werden rot zum Nachschreiben).
+6. **Zeugnisnote** in der letzten Spalte der Notenübersicht direkt eintragen
+   (neben „Gesamt berechnet“, wird nie automatisch übernommen).
 
 ## Konfiguration
 

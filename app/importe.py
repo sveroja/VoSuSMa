@@ -3,6 +3,9 @@ Einlesen der SuS-Liste aus dem Schulverwaltungs-Export (Untis "LessonStudentList
 TAB-getrennt). Reine Parse-Logik ohne DB-Zugriff - das Anlegen passiert im
 Blueprint, damit dort die Dubletten-Prüfung gegen die Klasse laufen kann.
 """
+import csv
+import io
+import re
 from datetime import date, datetime
 
 # Interner Feldname -> moegliche Spaltenueberschriften im Export
@@ -258,61 +261,83 @@ KLAUSUR_SPALTEN = {
     "wert": ("wert", "punkte", "note", "ergebnis", "erreicht", "erreichte punkte"),
 }
 
+# Moodle-Testexport: Punktespalte heisst "Bewertung/100" bzw. "Bewertung/100,00"
+# (engl. "Grade/100.00") - die Zahl hinter dem "/" ist die im Test eingestellte
+# Maximalpunktzahl. Die Einzelfragen-Spalten ("F. 1 /10,00") passen bewusst nicht.
+_MOODLE_BEWERTUNG = re.compile(r"^(?:bewertung|grade)\s*/\s*(\d+(?:[.,]\d+)?)$")
 
-def parse_klausur_liste(rohdaten: bytes) -> tuple[list[dict], list[str]]:
+# Moodle haengt eine Schlusszeile mit dem Klassenschnitt an - keine SuS.
+_MOODLE_SCHNITTZEILE = ("gesamtdurchschnitt", "overall average")
+
+# Wert-Zellen, die "nicht mitgeschrieben" bedeuten (Moodle-Export mit allen SuS)
+NICHT_MITGESCHRIEBEN = {"-", "–", ""}
+
+
+def parse_klausur_liste(rohdaten: bytes) -> tuple[list[dict], list[str], float | None]:
     """Liest eine CSV mit Nachname/Vorname + einem Wert je SuS (Punkte oder Note,
-    je nach Ziel-Kategorie). Gibt (zeilen, warnungen) zurueck; jede Zeile:
-    nachname, vorname, wert(str, roh), fehler(list). Der Wert wird hier NICHT
-    interpretiert - das macht die Route je nach Modus (Punkte/Note)."""
+    je nach Ziel-Kategorie). Gibt (zeilen, warnungen, max_punkte) zurueck;
+    max_punkte stammt aus einem Moodle-Kopf "Bewertung/<max>", sonst None.
+    Jede Zeile: nachname, vorname, wert(str, roh), nachschreiben(bool), fehler(list).
+    Der Wert wird hier NICHT interpretiert - das macht die Route je nach Modus.
+    Echtes CSV-Parsing (Anfuehrungszeichen!), weil Moodle komma-getrennt
+    exportiert und Dezimalwerte als "87,50" in Anfuehrungszeichen schreibt."""
     text = _decode(rohdaten).replace("\r\n", "\n").replace("\r", "\n")
     rohzeilen = [z for z in text.split("\n") if z.strip()]
     if not rohzeilen:
-        return [], ["Die Datei ist leer."]
+        return [], ["Die Datei ist leer."], None
 
-    trenner = "\t" if "\t" in rohzeilen[0] else (";" if ";" in rohzeilen[0] else ",")
-    kopf = [z.strip().lower().strip('"') for z in rohzeilen[0].split(trenner)]
+    erste = rohzeilen[0]
+    trenner = "\t" if "\t" in erste else (";" if ";" in erste else ",")
+    tabelle = list(csv.reader(io.StringIO("\n".join(rohzeilen)), delimiter=trenner))
+    kopf = [z.strip().lower() for z in tabelle[0]]
 
-    def spalte(feld):
-        for name in KLAUSUR_SPALTEN[feld]:
-            if name in kopf:
-                return kopf.index(name)
-        return None
+    max_punkte = None
+    idx = {}
+    for feld, namen in KLAUSUR_SPALTEN.items():
+        idx[feld] = next((kopf.index(n) for n in namen if n in kopf), None)
+    if idx["wert"] is None:
+        for i, name in enumerate(kopf):
+            m = _MOODLE_BEWERTUNG.match(name)
+            if m:
+                idx["wert"] = i
+                max_punkte = float(m.group(1).replace(",", "."))
+                break
 
-    idx = {feld: spalte(feld) for feld in KLAUSUR_SPALTEN}
     if idx["nachname"] is None or idx["vorname"] is None or idx["wert"] is None:
         return [], [
-            "Spalten 'Nachname', 'Vorname' und 'Punkte' (bzw. 'Note'/'Wert') "
-            "nicht gefunden – bitte eine Kopfzeile mit diesen Spalten verwenden."
-        ]
+            "Spalten 'Nachname', 'Vorname' und 'Punkte' (bzw. 'Note'/'Wert' oder "
+            "Moodle 'Bewertung/100') nicht gefunden – bitte eine Kopfzeile mit "
+            "diesen Spalten verwenden."
+        ], None
 
     def wert(felder, feld):
         i = idx[feld]
         if i is None or i >= len(felder):
             return ""
-        return felder[i].strip().strip('"')
+        return felder[i].strip()
 
     zeilen, warnungen = [], []
-    for nr, roh in enumerate(rohzeilen[1:], start=2):
-        felder = roh.split(trenner)
+    for felder in tabelle[1:]:
         nachname = wert(felder, "nachname")
         vorname = wert(felder, "vorname")
         rohwert = wert(felder, "wert")
-        if not nachname and not vorname and not rohwert:
+        if not nachname and not vorname:
+            continue
+        if not vorname and nachname.lower().startswith(_MOODLE_SCHNITTZEILE):
             continue
 
         fehler = []
         if not nachname or not vorname:
             fehler.append("Nach- oder Vorname fehlt")
-        if not rohwert:
-            fehler.append("kein Wert")
 
         zeilen.append({
             "nachname": nachname,
             "vorname": vorname,
             "wert": rohwert,
+            "nachschreiben": rohwert in NICHT_MITGESCHRIEBEN,
             "fehler": fehler,
         })
 
     if not zeilen:
         warnungen.append("Keine Datenzeilen gefunden.")
-    return zeilen, warnungen
+    return zeilen, warnungen, max_punkte

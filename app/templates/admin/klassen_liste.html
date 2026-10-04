@@ -11,6 +11,8 @@
     <p class="hinweis">
         Zum Unterrichten (Lernfelder, Noten, SuS) geht es über die
         <a href="{{ url_for('klassen.liste') }}">Klassen-Übersicht</a> in der Hauptnavigation.
+        Archivierte Klassen (z.B. abgeschlossene Jahrgänge) verschwinden aus Reitern und
+        SuS-Filter, alle Daten bleiben erhalten und sind über „Archiv anzeigen“ weiter erreichbar.
     </p>
 
     {% if klassen %}
@@ -24,8 +26,11 @@
                         <td>{{ klasse.bezeichnung }}</td>
                         <td>{{ klasse.bildungsgang.bezeichnung if klasse.bildungsgang else "–" }}</td>
                         <td>{{ klasse.anzahl_schueler }}</td>
-                        <td><span class="badge badge--{{ 'aktiv' if klasse.aktiv else 'inaktiv' }}">{{ 'aktiv' if klasse.aktiv else 'inaktiv' }}</span></td>
+                        <td><span class="badge badge--{{ 'aktiv' if klasse.aktiv else 'inaktiv' }}">{{ 'aktiv' if klasse.aktiv else 'archiviert' }}</span></td>
                         <td class="table-actions">
+                            <form method="post" class="inline-form" action="{{ url_for('admin.klasse_archiv_umschalten', klasse_id=klasse.id) }}">
+                                <button type="submit" class="action-link">{{ 'archivieren' if klasse.aktiv else 'reaktivieren' }}</button>
+                            </form>
                             <a href="{{ url_for('klassen.loeschen', klasse_id=klasse.id) }}">löschen</a>
                         </td>
                     </tr>

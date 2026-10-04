@@ -270,9 +270,32 @@ class Lernfeld(_LernfeldNamen, db.Model):
     noteneintraege = db.relationship(
         "Notenereintrag", back_populates="lernfeld", cascade="all, delete-orphan"
     )
+    zeugnisnoten = db.relationship(
+        "Zeugnisnote", back_populates="lernfeld", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Lernfeld {self.label}>"
+
+
+class Zeugnisnote(db.Model):
+    """Manuell festgelegte Zeugnisnote je SuS und Lernfeld (wie "Note manuell"
+    im Excel-"Gesamt"). Steht bewusst NEBEN der berechneten Gesamtnote statt sie
+    zu ersetzen - Zeugnisnoten sind eine paedagogische Entscheidung, die
+    Berechnung bleibt als Orientierung sichtbar."""
+    __tablename__ = "zeugnisnoten"
+
+    id = db.Column(db.Integer, primary_key=True)
+    lernfeld_id = db.Column(db.Integer, db.ForeignKey("lernfelder.id"), nullable=False)
+    schueler_id = db.Column(db.Integer, db.ForeignKey("schueler.id"), nullable=False)
+    note = db.Column(db.Float, nullable=False)
+
+    lernfeld = db.relationship("Lernfeld", back_populates="zeugnisnoten")
+    schueler = db.relationship("Schueler")
+
+    __table_args__ = (
+        db.UniqueConstraint("lernfeld_id", "schueler_id", name="uq_zeugnisnote_lernfeld_schueler"),
+    )
 
 
 class Notenkategorie(db.Model):

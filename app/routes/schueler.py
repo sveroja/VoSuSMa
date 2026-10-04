@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.extensions import db
 from app.importe import parse_nobo_anmeldungen, parse_sus_liste
-from app.models import Betrieb, Klasse, Notenereintrag, Schueler, SchuelerKlasse
+from app.models import Betrieb, Klasse, Notenereintrag, Schueler, SchuelerKlasse, Zeugnisnote
 from app.noten_logik import gesamtnote, kategorie_durchschnitt, note_aus_eintrag
 
 bp = Blueprint("schueler", __name__, url_prefix="/schueler")
@@ -38,19 +38,39 @@ def _schon_in_klasse(nachname, vorname, klasse_id):
 @bp.route("/")
 def liste():
     klasse_id = request.args.get("klasse_id", type=int)
+    gewaehlte = Klasse.query.get(klasse_id) if klasse_id else None
+    # archivierte Klassen nur auf Wunsch (oder wenn direkt eine angesteuert wird)
+    archiv = request.args.get("archiv") == "1" or (gewaehlte is not None and not gewaehlte.aktiv)
 
     query = Schueler.query.join(SchuelerKlasse).filter(SchuelerKlasse.aktiv_filter())
     if klasse_id:
         query = query.filter(SchuelerKlasse.klasse_id == klasse_id)
-    schueler_liste = query.order_by(Schueler.nachname, Schueler.vorname).all()
+    elif not archiv:
+        query = query.join(Klasse, SchuelerKlasse.klasse_id == Klasse.id).filter(Klasse.aktiv.is_(True))
+    schueler_liste = query.distinct().order_by(Schueler.nachname, Schueler.vorname).all()
 
-    klassen = Klasse.query.filter_by(aktiv=True).order_by(Klasse.bezeichnung).all()
+    klassen_query = Klasse.query
+    if not archiv:
+        klassen_query = klassen_query.filter_by(aktiv=True)
+    klassen = klassen_query.order_by(Klasse.aktiv.desc(), Klasse.bezeichnung).all()
+
+    # Massenmail (nur bei gefilterter Klasse): Adressen dedupliziert, leere raus
+    mail_sus, mail_betriebe = [], []
+    if gewaehlte is not None:
+        for s in schueler_liste:
+            if s.email and s.email not in mail_sus:
+                mail_sus.append(s.email)
+            if s.betrieb_mail_anzeige and s.betrieb_mail_anzeige not in mail_betriebe:
+                mail_betriebe.append(s.betrieb_mail_anzeige)
 
     return render_template(
         "schueler/liste.html",
         schueler_liste=[(s, _aktuelle_klasse(s)) for s in schueler_liste],
         klassen=klassen,
         gewaehlte_klasse_id=klasse_id,
+        archiv=archiv,
+        mail_sus=mail_sus,
+        mail_betriebe=mail_betriebe,
     )
 
 
@@ -175,6 +195,9 @@ def detail(schueler_id):
                     "lernfeld": lernfeld,
                     "kategorien": kategorien_uebersicht,
                     "gesamtnote": gesamtnote(lernfeld, je_kategorie),
+                    "zeugnisnote": next(
+                        (z.note for z in lernfeld.zeugnisnoten if z.schueler_id == schueler.id), None
+                    ),
                 }
             )
 
@@ -309,6 +332,10 @@ def loeschen(schueler_id):
                 Notenereintrag.schueler_id == schueler.id,
                 Notenereintrag.lernfeld_id.in_(lernfeld_ids),
             ).delete(synchronize_session=False)
+            Zeugnisnote.query.filter(
+                Zeugnisnote.schueler_id == schueler.id,
+                Zeugnisnote.lernfeld_id.in_(lernfeld_ids),
+            ).delete(synchronize_session=False)
         SchuelerKlasse.query.filter_by(
             schueler_id=schueler.id, klasse_id=klasse.id
         ).delete(synchronize_session=False)
@@ -317,6 +344,7 @@ def loeschen(schueler_id):
         return redirect(url_for("schueler.liste", klasse_id=klasse.id))
 
     Notenereintrag.query.filter_by(schueler_id=schueler.id).delete(synchronize_session=False)
+    Zeugnisnote.query.filter_by(schueler_id=schueler.id).delete(synchronize_session=False)
     db.session.delete(schueler)  # SchuelerKlasse hängt per Cascade dran
     db.session.commit()
     flash(f"'{name}' wurde vollständig gelöscht.", "success")

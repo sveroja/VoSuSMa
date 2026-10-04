@@ -8,16 +8,27 @@
 
     {% if not klassen %}
         <p class="empty-state">
-            Noch keine Klassen angelegt –
+            {% if anzahl_archiviert %}Alle Klassen sind archiviert –
+            <a href="{{ url_for('klassen.liste', archiv=1) }}">Archiv anzeigen</a> oder neue Klasse{% else %}Noch keine Klassen angelegt{% endif %} –
             <a href="{{ url_for('admin.klassen_liste') }}">im Admin-Bereich</a> anlegen.
         </p>
     {% else %}
         <nav class="tabs">
             {% for klasse in klassen %}
-                <a class="tab {{ 'tab--aktiv' if gewaehlte and klasse.id == gewaehlte.id }}"
-                   href="{{ url_for('klassen.liste', klasse_id=klasse.id) }}">{{ klasse.bezeichnung }}</a>
+                <a class="tab {{ 'tab--aktiv' if gewaehlte and klasse.id == gewaehlte.id }} {{ 'tab--archiviert' if not klasse.aktiv }}"
+                   href="{{ url_for('klassen.liste', klasse_id=klasse.id, archiv=1 if archiv else None) }}"
+                   {% if not klasse.aktiv %}title="archiviert"{% endif %}>{{ klasse.bezeichnung }}</a>
             {% endfor %}
         </nav>
+        {% if anzahl_archiviert %}
+            <p class="hinweis">
+                {% if archiv %}
+                    <a href="{{ url_for('klassen.liste') }}">Archiv ausblenden</a>
+                {% else %}
+                    <a href="{{ url_for('klassen.liste', archiv=1) }}">Archiv anzeigen ({{ anzahl_archiviert }})</a>
+                {% endif %}
+            </p>
+        {% endif %}
 
         {% if gewaehlte %}
             <div class="page-header">

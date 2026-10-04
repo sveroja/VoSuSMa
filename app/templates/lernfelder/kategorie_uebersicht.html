@@ -45,7 +45,8 @@
                                 <td>{{ zeile.schueler.nachname }}</td>
                                 <td>{{ zeile.schueler.vorname }}</td>
                                 {% for z in zeile.zellen %}
-                                    <td class="zell-td">
+                                    <td class="zell-td {{ 'zelle--nachschreiben' if ist_punkte and z.note is none }}"
+                                        {% if ist_punkte and z.note is none %}title="Kein Ergebnis – nachschreiben"{% endif %}>
                                         <input class="zell-input" type="text" inputmode="decimal" autocomplete="off"
                                                name="{{ 'e_' ~ z.eintrag.id if z.eintrag else 'n_' ~ z.idx ~ '_' ~ zeile.schueler.id }}"
                                                value="{{ z.rohwert }}" placeholder="–">
@@ -73,6 +74,7 @@
             <p class="hinweis">
                 Feld leeren = Note löschen. Leeres Feld ausfüllen = Note ergänzen (übernimmt Datum/Bezeichnung der Spalte).
                 <code>na</code> = nicht anwesend (zählt nicht in den Schnitt). Kommentar optional.
+                {% if ist_punkte %} Rot = kein Ergebnis (na/leer) → nachschreiben; Punkte eintragen, sobald nachgeschrieben.{% endif %}
                 {% if ist_punkte %} Werte sind erreichte Punkte.{% endif %}
             </p>
         </form>

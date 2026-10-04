@@ -70,8 +70,10 @@
                     </tbody>
                 </table>
                 <p class="gesamtnote">
-                    Gesamtnote:
+                    Gesamt berechnet:
                     <strong>{{ "%.1f"|format(eintrag.gesamtnote) if eintrag.gesamtnote is not none else "noch keine Note" }}</strong>
+                    · Zeugnisnote:
+                    <strong>{{ ("%g"|format(eintrag.zeugnisnote))|replace(".", ",") if eintrag.zeugnisnote is not none else "noch nicht festgelegt" }}</strong>
                 </p>
             </section>
         {% endfor %}

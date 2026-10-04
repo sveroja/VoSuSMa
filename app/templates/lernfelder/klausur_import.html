@@ -13,6 +13,13 @@
         Trennzeichen <code>;</code>, <code>,</code> oder Tab. Die Zuordnung erfolgt
         über den Namen; nicht gefundene SuS werden in der Vorschau markiert.
     </p>
+    <p class="hinweis">
+        <strong>Moodle-Test:</strong> Export direkt hochladen. Die Spalte
+        <code>Bewertung/100</code> wird erkannt, die Max. Punkte kommen aus dem
+        Spaltenkopf (Feld unten dann leer lassen). SuS mit <code>-</code> oder ohne
+        Zeile in der Datei werden rot als „nachschreiben“ markiert. Bei mehreren
+        Versuchen zählt der beste.
+    </p>
 
     <form method="post" class="form" enctype="multipart/form-data">
         <div class="form__field">
@@ -24,7 +31,7 @@
             </select>
         </div>
         <div class="form__field">
-            <label for="max_punkte">Max. Punkte (nur bei Punkte-Kategorien)</label>
+            <label for="max_punkte">Max. Punkte (nur bei Punkte-Kategorien; leer = aus Moodle-Spalte „Bewertung/…“)</label>
             <input type="text" inputmode="decimal" id="max_punkte" name="max_punkte" autocomplete="off" placeholder="z.B. 40">
         </div>
         <div class="form__field">

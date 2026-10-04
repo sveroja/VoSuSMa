@@ -7,7 +7,7 @@
     </div>
     <p class="subtitle">
         {{ klasse.bezeichnung }} – {{ lernfeld.label }} – Kategorie: {{ kategorie.bezeichnung }}
-        ({{ "Punkte" if ist_punkte else "direkte Note" }})
+        ({{ "Punkte" if ist_punkte else "direkte Note" }}{% if ist_punkte and max_punkte %}, max. {{ "%g"|format(max_punkte)|replace(".", ",") }} Punkte{% if max_aus_csv is not none and max_aus_csv == max_punkte %} laut CSV{% endif %}{% endif %})
     </p>
 
     <table>
@@ -19,8 +19,20 @@
                 <tr>
                     <td>{{ z.nachname }}</td>
                     <td>{{ z.vorname }}</td>
-                    <td>{{ z.wert }}</td>
-                    <td>{% if z.status == 'ok' %}<span class="badge badge--aktiv">wird übernommen</span>{% else %}<span class="badge badge--inaktiv">{{ z.status }}</span>{% endif %}</td>
+                    {% if z.nachschreiben_markiert %}
+                        <td class="zelle--nachschreiben" title="Kein Ergebnis – nachschreiben">{{ z.wert or "–" }}</td>
+                    {% else %}
+                        <td>{{ z.wert }}</td>
+                    {% endif %}
+                    <td>
+                        {% if z.status == 'ok' %}
+                            <span class="badge badge--aktiv">wird übernommen</span>
+                        {% elif z.nachschreiben_markiert %}
+                            <span class="badge badge--nachschreiben">nachschreiben{% if z.fehlt_in_csv %} (nicht in der CSV){% endif %}</span>
+                        {% else %}
+                            <span class="badge badge--inaktiv">{{ z.status }}</span>
+                        {% endif %}
+                    </td>
                 </tr>
             {% endfor %}
         </tbody>
@@ -34,8 +46,15 @@
                 <input type="hidden" name="{{ name }}" value="{{ wert }}">
             {% endif %}
         {% endfor %}
+        {% if anzahl_nachschreiben %}
+            <label class="checkbox-label">
+                <input type="checkbox" name="nachschreiben_eintragen" checked>
+                {{ anzahl_nachschreiben }} SuS ohne Ergebnis als <code>na</code> eintragen
+                (rot markiert in der Notenübersicht → nachschreiben; Punkte später in der Kategorie-Ansicht nachtragen)
+            </label>
+        {% endif %}
         <div class="form__actions">
-            <button type="submit" {% if not anzahl_ok %}disabled{% endif %}>{{ anzahl_ok }} Einträge übernehmen</button>
+            <button type="submit" {% if not anzahl_ok and not anzahl_nachschreiben %}disabled{% endif %}>{{ anzahl_ok }} Einträge übernehmen</button>
             <a class="button button--secondary" href="{{ url_for('lernfelder.uebersicht', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">Abbrechen</a>
         </div>
     </form>

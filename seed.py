@@ -37,6 +37,7 @@ from app.models import (
     Schueler,
     SchuelerKlasse,
     VorlageGewichtung,
+    Zeugnisnote,
     schueler_gruppen,
 )
 from app.stammdaten import STANDARD_NOTENKATEGORIEN
@@ -104,6 +105,7 @@ def _get_or_create_kategorien():
 
 def _raeume_fake_daten_auf():
     """Vorherige Seed-Laeufe entfernen, damit das Skript wiederholt laufen kann."""
+    Zeugnisnote.query.delete()
     Notenereintrag.query.delete()
     NotenkategorieGewichtung.query.delete()
     Lernfeld.query.delete()

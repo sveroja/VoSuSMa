@@ -10,9 +10,15 @@ bp = Blueprint("klassen", __name__, url_prefix="/klassen")
 
 @bp.route("/")
 def liste():
-    klassen = Klasse.query.order_by(Klasse.bezeichnung).all()
-
+    alle = Klasse.query.order_by(Klasse.bezeichnung).all()
     gewaehlte_id = request.args.get("klasse_id", type=int)
+    # Archivierte nur auf Wunsch - oder wenn direkt eine archivierte angesteuert wird
+    archiv = request.args.get("archiv") == "1" or any(
+        k.id == gewaehlte_id and not k.aktiv for k in alle
+    )
+    klassen = alle if archiv else [k for k in alle if k.aktiv]
+    anzahl_archiviert = sum(1 for k in alle if not k.aktiv)
+
     gewaehlte = None
     if gewaehlte_id:
         gewaehlte = next((k for k in klassen if k.id == gewaehlte_id), None)
@@ -30,6 +36,7 @@ def liste():
     return render_template(
         "klassen/liste.html", klassen=klassen, gewaehlte=gewaehlte,
         lernfelder=lernfelder, anzahl_noten=anzahl_noten,
+        archiv=archiv, anzahl_archiviert=anzahl_archiviert,
     )
 
 

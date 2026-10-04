@@ -18,11 +18,44 @@
             <option value="">Alle Klassen</option>
             {% for klasse in klassen %}
                 <option value="{{ klasse.id }}" {% if klasse.id == gewaehlte_klasse_id %}selected{% endif %}>
-                    {{ klasse.bezeichnung }}
+                    {{ klasse.bezeichnung }}{% if not klasse.aktiv %} (archiviert){% endif %}
                 </option>
             {% endfor %}
         </select>
+        <label class="filter-form__check">
+            <input type="checkbox" name="archiv" value="1" {% if archiv %}checked{% endif %} onchange="this.form.submit()">
+            archivierte Klassen
+        </label>
     </form>
+
+    {% if gewaehlte_klasse_id %}
+        {% macro mail_button(adressen, text) -%}
+            {%- if adressen -%}
+                <a class="button button--secondary" href="mailto:?bcc={{ adressen | join(',') }}"
+                   title="{{ adressen | length }} Adresse(n) ins BCC – Nachricht schreibst du im Mailprogramm">{{ text }} ({{ adressen | length }})</a>
+                <button type="button" class="action-link" data-adressen="{{ adressen | join('; ') }}"
+                        onclick="adressenKopieren(this)" title="Adressen in die Zwischenablage (falls der Mail-Link zu lang ist)">kopieren</button>
+            {%- else -%}
+                <span class="button button--secondary" aria-disabled="true" title="keine Adressen hinterlegt">{{ text }} (0)</span>
+            {%- endif -%}
+        {%- endmacro %}
+        <p class="table-actions mail-aktionen">
+            {{ mail_button(mail_sus, "Mail an SuS") }}
+            {{ mail_button(mail_betriebe, "Mail an Betriebe") }}
+        </p>
+        {% if (mail_sus | join(',') | length) > 1800 or (mail_betriebe | join(',') | length) > 1800 %}
+            <p class="hinweis">Sehr viele Adressen – falls sich das Mailprogramm nicht öffnet: „kopieren“ und ins BCC einfügen.</p>
+        {% endif %}
+        <script>
+            function adressenKopieren(knopf) {
+                navigator.clipboard.writeText(knopf.dataset.adressen).then(function () {
+                    var alt = knopf.textContent;
+                    knopf.textContent = "kopiert ✓";
+                    setTimeout(function () { knopf.textContent = alt; }, 1500);
+                });
+            }
+        </script>
+    {% endif %}
 
     {% if schueler_liste %}
         <div class="matrix-wrap">

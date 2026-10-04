@@ -11,6 +11,7 @@ from app.models import (
     NotenkategorieGewichtung,
     Schueler,
     SchuelerKlasse,
+    Zeugnisnote,
 )
 from app.gewichtung import gewichte_aus_formular
 from app.importe import parse_klausur_liste
@@ -217,6 +218,7 @@ def uebersicht(klasse_id, lernfeld_id):
     schueler_liste = _aktive_schueler(klasse)
 
     eintraege = Notenereintrag.query.filter_by(lernfeld_id=lernfeld.id).all()
+    zeugnis = {z.schueler_id: z.note for z in lernfeld.zeugnisnoten}
     eintraege_je_schueler = {}
     for e in eintraege:
         eintraege_je_schueler.setdefault(e.schueler_id, []).append(e)
@@ -273,6 +275,7 @@ def uebersicht(klasse_id, lernfeld_id):
             je_kategorie.setdefault(e.kategorie_id, []).append(e)
 
         zellen = {}
+        nachschreiben = {}  # key -> Anzeigetext ("na" | "–") fuer rot markierte Zellen
         for sp in spalten:
             if sp["typ"] == "schnitt":
                 wert = kategorie_durchschnitt(je_kategorie.get(sp["kategorie_id"], []))
@@ -282,12 +285,17 @@ def uebersicht(klasse_id, lernfeld_id):
                     if (e.bezeichnung or "").strip() == sp["bezeichnung"]
                 ]
                 wert = kategorie_durchschnitt(passende)
+                # Einzelarbeit ohne Ergebnis (nicht mitgeschrieben/"na"/fehlt) -> Nachschreiben
+                if wert is None:
+                    nachschreiben[sp["key"]] = "na" if any(e.abwesend for e in passende) else "–"
             zellen[sp["key"]] = wert
 
         zeilen.append({
             "schueler": schueler,
             "zellen": zellen,
+            "nachschreiben": nachschreiben,
             "gesamt": gesamtnote(lernfeld, je_kategorie),
+            "zeugnis": _zahl(zeugnis.get(schueler.id)),
         })
 
     kategorien_nach_gewicht = sorted(lernfeld.gewichtungen, key=lambda g: -g.gewicht)
@@ -302,6 +310,49 @@ def uebersicht(klasse_id, lernfeld_id):
         gewicht_info=[(g.kategorie.bezeichnung, round(g.gewicht * 100)) for g in kategorien_nach_gewicht],
         heute=date.today().isoformat(),
     )
+
+
+@bp.route("/<int:lernfeld_id>/zeugnisnoten", methods=["POST"])
+def zeugnisnoten_speichern(klasse_id, lernfeld_id):
+    """Spalte "Zeugnisnote" der Klassenuebersicht: ein Feld je SuS (zn_<id>).
+    Leer = keine Zeugnisnote (vorhandene wird entfernt)."""
+    klasse = Klasse.query.get_or_404(klasse_id)
+    lernfeld = _lernfeld_der_klasse(klasse_id, lernfeld_id)
+    vorhandene = {z.schueler_id: z for z in lernfeld.zeugnisnoten}
+
+    geaendert = 0
+    fehler = []
+    for schueler in _aktive_schueler(klasse):
+        feld = f"zn_{schueler.id}"
+        if feld not in request.form:
+            continue
+        roh = request.form[feld].strip()
+        alt = vorhandene.get(schueler.id)
+        if not roh:
+            if alt is not None:
+                db.session.delete(alt)
+                geaendert += 1
+            continue
+        try:
+            note = parse_note(roh)
+        except ValueError:
+            fehler.append(f"{schueler.nachname}: {roh}")
+            continue
+        if alt is None:
+            db.session.add(Zeugnisnote(lernfeld_id=lernfeld.id, schueler_id=schueler.id, note=note))
+            geaendert += 1
+        elif alt.note != note:
+            alt.note = note
+            geaendert += 1
+
+    if geaendert:
+        db.session.commit()
+        flash(f"Zeugnisnoten gespeichert ({geaendert} geändert).", "success")
+    if fehler:
+        flash("Nicht gespeichert (Note 1,0–6,0 erwartet): " + ", ".join(fehler), "error")
+    if not geaendert and not fehler:
+        flash("Keine Änderungen an den Zeugnisnoten.", "success")
+    return redirect(url_for("lernfelder.uebersicht", klasse_id=klasse_id, lernfeld_id=lernfeld_id))
 
 
 @bp.route("/<int:lernfeld_id>/kategorie/<int:kategorie_id>")
@@ -537,10 +588,11 @@ def klausur_import(klasse_id, lernfeld_id):
         return _render_form(), 400
 
     ist_punkte = _ist_punkte_kategorie(kategorie)
+    max_roh = request.form.get("max_punkte", "").strip().replace(",", ".")
     max_punkte = None
-    if ist_punkte:
+    if max_roh:
         try:
-            max_punkte = float(request.form.get("max_punkte", "").strip().replace(",", "."))
+            max_punkte = float(max_roh)
         except ValueError:
             max_punkte = 0
         if max_punkte <= 0:
@@ -558,17 +610,38 @@ def klausur_import(klasse_id, lernfeld_id):
         flash("Bitte eine Datei auswählen.", "error")
         return _render_form(), 400
 
-    zeilen, warnungen = parse_klausur_liste(datei.read())
+    zeilen, warnungen, max_aus_csv = parse_klausur_liste(datei.read())
     for w in warnungen:
         flash(w, "error")
     if not zeilen:
         return _render_form(), 400
 
+    if ist_punkte:
+        # Moodle "Bewertung/100": Max. Punkte aus dem Spaltenkopf, wenn das Feld leer blieb
+        if max_punkte is None:
+            max_punkte = max_aus_csv
+        elif max_aus_csv is not None and max_aus_csv != max_punkte:
+            flash(
+                f"Hinweis: Die CSV nennt {_zahl(max_aus_csv)} Max. Punkte, verwendet wird "
+                f"deine Eingabe {_zahl(max_punkte)}.", "error",
+            )
+        if max_punkte is None:
+            flash("Bitte die Maximalpunktzahl angeben (die CSV enthält keine "
+                  "Moodle-Spalte „Bewertung/…“).", "error")
+            return _render_form(), 400
+
     aktive = _aktive_schueler(klasse)
     nach_name = {(s.nachname.lower(), s.vorname.lower()): s for s in aktive}
 
-    treffer = []  # (schueler, wert_roh, wert_num)
+    def _rang(zeile):
+        """Besserer Versuch gewinnt: mehr Punkte bzw. kleinere Note; Ergebnis schlägt "-"."""
+        if zeile["num"] is None:
+            return float("-inf")
+        return zeile["num"] if ist_punkte else -zeile["num"]
+
+    bester = {}  # schueler_id -> Zeile mit dem besten Versuch (Moodle: mehrere Versuche je SuS)
     for z in zeilen:
+        z["nachschreiben_markiert"] = False
         if z["fehler"]:
             z["status"] = "fehler: " + ", ".join(z["fehler"])
             continue
@@ -576,20 +649,52 @@ def klausur_import(klasse_id, lernfeld_id):
         if s is None:
             z["status"] = "kein SuS-Treffer in der Klasse"
             continue
-        num, wfehler = _wert_pruefen(z["wert"], ist_punkte)
-        if wfehler:
-            z["status"] = f"ungültig ({wfehler})"
-            continue
-        z["status"] = "ok"
         z["schueler"] = s
-        treffer.append((s, z["wert"], num))
+        if z["nachschreiben"]:
+            z["status"] = "nachschreiben"
+            z["num"] = None
+        else:
+            num, wfehler = _wert_pruefen(z["wert"], ist_punkte)
+            if wfehler:
+                z["status"] = f"ungültig ({wfehler})"
+                continue
+            z["status"] = "ok"
+            z["num"] = num
+        alt = bester.get(s.id)
+        if alt is None:
+            bester[s.id] = z
+            continue
+        verlierer = z if _rang(z) <= _rang(alt) else alt
+        if verlierer is alt:
+            bester[s.id] = z
+        verlierer["status"] = "weiterer Versuch – nicht übernommen"
 
-    tsv = "schueler_id\twert\n" + "\n".join(f"{s.id}\t{roh}" for s, roh, _ in treffer)
+    treffer = [z for z in bester.values() if z["status"] == "ok"]
+    nachschreiben = [z for z in bester.values() if z["status"] == "nachschreiben"]
+    for z in nachschreiben:
+        z["nachschreiben_markiert"] = True
+
+    # SuS der Klasse, die in der CSV gar nicht vorkommen (Moodle-Export "nur mit Versuchen")
+    fehlende = [s for s in aktive if s.id not in bester]
+    for s in fehlende:
+        zeilen.append({
+            "nachname": s.nachname, "vorname": s.vorname, "wert": "",
+            "status": "nachschreiben", "fehlt_in_csv": True,
+            "nachschreiben_markiert": True, "schueler": s,
+        })
+
+    tsv = "schueler_id\twert\n" + "\n".join(
+        [f"{z['schueler'].id}\t{z['wert']}" for z in treffer]
+        + [f"{z['schueler'].id}\tna" for z in nachschreiben]
+        + [f"{s.id}\tna" for s in fehlende]
+    )
 
     return render_template(
         "lernfelder/klausur_import_vorschau.html",
         klasse=klasse, lernfeld=lernfeld, kategorie=kategorie, ist_punkte=ist_punkte,
         zeilen=zeilen, anzahl_ok=len(treffer),
+        anzahl_nachschreiben=len(nachschreiben) + len(fehlende),
+        max_punkte=max_punkte, max_aus_csv=max_aus_csv,
         hidden={
             "kategorie_id": kategorie.id,
             "modus": "punkte" if ist_punkte else "note",
@@ -620,21 +725,32 @@ def klausur_import_anlegen(klasse_id, lernfeld_id):
     except ValueError:
         datum = date.today()
     bezeichnung = request.form.get("bezeichnung", "").strip() or None
+    nachschreiben_eintragen = request.form.get("nachschreiben_eintragen") == "on"
 
-    gespeichert = 0
+    gespeichert = nachschreiben = 0
     for roh in request.form.get("tsv", "").split("\n")[1:]:
         if not roh.strip():
             continue
         teile = roh.split("\t")
         if len(teile) != 2 or not teile[0].isdigit():
             continue
-        num, wfehler = _wert_pruefen(teile[1], ist_punkte)
-        if wfehler:
-            continue
         eintrag = Notenereintrag(
             schueler_id=int(teile[0]), lernfeld_id=lernfeld.id, kategorie_id=kategorie.id,
             datum=datum, bezeichnung=bezeichnung,
         )
+        if ist_na(teile[1]):
+            # nicht mitgeschrieben -> "na"-Eintrag, erscheint in der Übersicht rot
+            if not nachschreiben_eintragen:
+                continue
+            eintrag.abwesend = True
+            eintrag.max_punkte = max_punkte if ist_punkte else None
+            eintrag.kommentar = "nachschreiben"
+            db.session.add(eintrag)
+            nachschreiben += 1
+            continue
+        num, wfehler = _wert_pruefen(teile[1], ist_punkte)
+        if wfehler:
+            continue
         if ist_punkte:
             eintrag.erreichte_punkte = num
             eintrag.max_punkte = max_punkte
@@ -643,9 +759,12 @@ def klausur_import_anlegen(klasse_id, lernfeld_id):
         db.session.add(eintrag)
         gespeichert += 1
 
-    if gespeichert:
+    if gespeichert or nachschreiben:
         db.session.commit()
-        flash(f"{gespeichert} Noteneinträge aus der CSV übernommen.", "success")
+        meldung = f"{gespeichert} Noteneinträge aus der CSV übernommen."
+        if nachschreiben:
+            meldung += f" {nachschreiben} SuS als „nachschreiben“ (na) markiert."
+        flash(meldung, "success")
     else:
         flash("Nichts übernommen.", "error")
     return redirect(url_for("lernfelder.uebersicht", klasse_id=klasse_id, lernfeld_id=lernfeld_id))

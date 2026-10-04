@@ -443,8 +443,22 @@ def betrieb_loeschen(betrieb_id):
 # --------------------------------------------------------------------------- #
 @bp.route("/klassen")
 def klassen_liste():
-    klassen = Klasse.query.order_by(Klasse.bezeichnung).all()
+    # aktive zuerst, archivierte darunter
+    klassen = Klasse.query.order_by(Klasse.aktiv.desc(), Klasse.bezeichnung).all()
     return render_template("admin/klassen_liste.html", klassen=klassen)
+
+
+@bp.route("/klassen/<int:klasse_id>/archiv", methods=["POST"])
+def klasse_archiv_umschalten(klasse_id):
+    """Archivieren = ausblenden (Reiter, SuS-Filter, Dashboard), nichts wird gelöscht."""
+    klasse = Klasse.query.get_or_404(klasse_id)
+    klasse.aktiv = not klasse.aktiv
+    db.session.commit()
+    if klasse.aktiv:
+        flash(f"Klasse '{klasse.bezeichnung}' ist wieder aktiv.", "success")
+    else:
+        flash(f"Klasse '{klasse.bezeichnung}' wurde archiviert (Daten bleiben erhalten).", "success")
+    return redirect(url_for("admin.klassen_liste"))
 
 
 # --------------------------------------------------------------------------- #
