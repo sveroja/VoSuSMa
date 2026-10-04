@@ -72,9 +72,14 @@
                 <p class="gesamtnote">
                     Gesamt berechnet:
                     <strong>{{ "%.1f"|format(eintrag.gesamtnote) if eintrag.gesamtnote is not none else "noch keine Note" }}</strong>
-                    · Zeugnisnote:
-                    <strong>{{ ("%g"|format(eintrag.zeugnisnote))|replace(".", ",") if eintrag.zeugnisnote is not none else "noch nicht festgelegt" }}</strong>
+                    {% set z = eintrag.zeugnis %}
+                    · Zeugnis HJ1:
+                    <strong>{{ ("%g"|format(z.note_hj1))|replace(".", ",") if z and z.note_hj1 is not none else "–" }}</strong>
+                    · Zeugnis HJ2:
+                    <strong>{{ ("%g"|format(z.note_hj2))|replace(".", ",") if z and z.note_hj2 is not none else "–" }}</strong>
                 </p>
+                {% if z and z.selbsteinschaetzung %}<p class="hinweis">Selbsteinschätzung: {{ z.selbsteinschaetzung }}</p>{% endif %}
+                {% if z and z.bemerkung %}<p class="hinweis zeugnis-bemerkung">Bemerkung: {{ z.bemerkung }}</p>{% endif %}
             </section>
         {% endfor %}
     {% endif %}

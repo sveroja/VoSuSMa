@@ -76,6 +76,18 @@ def _zahl(wert):
     return "" if wert is None else f"{wert:g}".replace(".", ",")
 
 
+def _zeugnis_felder(z):
+    """Zeugnisnote (oder None) -> Formularwerte der Uebersicht."""
+    if z is None:
+        return {"hj1": "", "selbst": "", "bem": "", "hj2": ""}
+    return {
+        "hj1": _zahl(z.note_hj1),
+        "selbst": z.selbsteinschaetzung or "",
+        "bem": z.bemerkung or "",
+        "hj2": _zahl(z.note_hj2),
+    }
+
+
 @bp.route("/")
 def liste(klasse_id):
     klasse = Klasse.query.get_or_404(klasse_id)
@@ -218,7 +230,7 @@ def uebersicht(klasse_id, lernfeld_id):
     schueler_liste = _aktive_schueler(klasse)
 
     eintraege = Notenereintrag.query.filter_by(lernfeld_id=lernfeld.id).all()
-    zeugnis = {z.schueler_id: z.note for z in lernfeld.zeugnisnoten}
+    zeugnis = {z.schueler_id: z for z in lernfeld.zeugnisnoten}
     eintraege_je_schueler = {}
     for e in eintraege:
         eintraege_je_schueler.setdefault(e.schueler_id, []).append(e)
@@ -295,7 +307,7 @@ def uebersicht(klasse_id, lernfeld_id):
             "zellen": zellen,
             "nachschreiben": nachschreiben,
             "gesamt": gesamtnote(lernfeld, je_kategorie),
-            "zeugnis": _zahl(zeugnis.get(schueler.id)),
+            "zeugnis": _zeugnis_felder(zeugnis.get(schueler.id)),
         })
 
     kategorien_nach_gewicht = sorted(lernfeld.gewichtungen, key=lambda g: -g.gewicht)
@@ -314,8 +326,9 @@ def uebersicht(klasse_id, lernfeld_id):
 
 @bp.route("/<int:lernfeld_id>/zeugnisnoten", methods=["POST"])
 def zeugnisnoten_speichern(klasse_id, lernfeld_id):
-    """Spalte "Zeugnisnote" der Klassenuebersicht: ein Feld je SuS (zn_<id>).
-    Leer = keine Zeugnisnote (vorhandene wird entfernt)."""
+    """Zeugnis-Spalten der Klassenuebersicht je SuS: hj1_<id>, selbst_<id>,
+    bem_<id>, hj2_<id>. Alle leer = Zeile wird entfernt. Ungueltige Note ->
+    alter Wert bleibt, die uebrigen Felder werden trotzdem gespeichert."""
     klasse = Klasse.query.get_or_404(klasse_id)
     lernfeld = _lernfeld_der_klasse(klasse_id, lernfeld_id)
     vorhandene = {z.schueler_id: z for z in lernfeld.zeugnisnoten}
@@ -323,35 +336,44 @@ def zeugnisnoten_speichern(klasse_id, lernfeld_id):
     geaendert = 0
     fehler = []
     for schueler in _aktive_schueler(klasse):
-        feld = f"zn_{schueler.id}"
-        if feld not in request.form:
+        if f"hj1_{schueler.id}" not in request.form:
             continue
-        roh = request.form[feld].strip()
         alt = vorhandene.get(schueler.id)
-        if not roh:
-            if alt is not None:
-                db.session.delete(alt)
-                geaendert += 1
-            continue
-        try:
-            note = parse_note(roh)
-        except ValueError:
-            fehler.append(f"{schueler.nachname}: {roh}")
-            continue
+        z = alt or Zeugnisnote(lernfeld_id=lernfeld.id, schueler_id=schueler.id)
+        vorher = (z.note_hj1, z.selbsteinschaetzung, z.bemerkung, z.note_hj2)
+
+        for feld, attr, label in (("hj1", "note_hj1", "HJ1"), ("hj2", "note_hj2", "HJ2")):
+            roh = request.form.get(f"{feld}_{schueler.id}", "").strip()
+            if not roh:
+                setattr(z, attr, None)
+                continue
+            try:
+                setattr(z, attr, parse_note(roh))
+            except ValueError:
+                fehler.append(f"{schueler.nachname} {label}: {roh}")
+        z.selbsteinschaetzung = request.form.get(f"selbst_{schueler.id}", "").strip()[:100] or None
+        z.bemerkung = request.form.get(f"bem_{schueler.id}", "").strip() or None
+
+        nachher = (z.note_hj1, z.selbsteinschaetzung, z.bemerkung, z.note_hj2)
+        leer = all(v is None for v in nachher)
         if alt is None:
-            db.session.add(Zeugnisnote(lernfeld_id=lernfeld.id, schueler_id=schueler.id, note=note))
+            if not leer:
+                db.session.add(z)
+                geaendert += 1
+        elif leer:
+            db.session.delete(alt)
             geaendert += 1
-        elif alt.note != note:
-            alt.note = note
+        elif nachher != vorher:
             geaendert += 1
 
     if geaendert:
         db.session.commit()
-        flash(f"Zeugnisnoten gespeichert ({geaendert} geändert).", "success")
+        flash(f"Zeugnis-Spalten gespeichert ({geaendert} SuS geändert).", "success")
     if fehler:
-        flash("Nicht gespeichert (Note 1,0–6,0 erwartet): " + ", ".join(fehler), "error")
+        db.session.commit()
+        flash("Note nicht übernommen (1,0–6,0 erwartet), alter Wert bleibt: " + ", ".join(fehler), "error")
     if not geaendert and not fehler:
-        flash("Keine Änderungen an den Zeugnisnoten.", "success")
+        flash("Keine Änderungen in den Zeugnis-Spalten.", "success")
     return redirect(url_for("lernfelder.uebersicht", klasse_id=klasse_id, lernfeld_id=lernfeld_id))
 
 

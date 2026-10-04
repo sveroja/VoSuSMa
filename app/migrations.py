@@ -46,10 +46,40 @@ def _m_0003_noteneintrag_abwesend_kommentar(conn):
     conn.exec_driver_sql("ALTER TABLE noteneintraege ADD COLUMN kommentar VARCHAR(255)")
 
 
+def _m_0004_zeugnis_hj1_hj2(conn):
+    # zeugnisnoten (eine Pflicht-Spalte "note") -> HJ1/HJ2 + Selbsteinschaetzung +
+    # Bemerkung, alle optional. NOT NULL faellt weg -> Tabellen-Neuaufbau.
+    # Bisherige Noten werden zu "Zeugnis HJ1". Gibt es die Tabelle noch nicht
+    # (DB vor Einfuehrung der Zeugnisnote), legt db.create_all() sie neu an.
+    vorhanden = conn.exec_driver_sql(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='zeugnisnoten'"
+    ).scalar()
+    if not vorhanden:
+        return
+    conn.exec_driver_sql(
+        "CREATE TABLE zeugnisnoten_neu ("
+        " id INTEGER NOT NULL PRIMARY KEY,"
+        " lernfeld_id INTEGER NOT NULL REFERENCES lernfelder (id),"
+        " schueler_id INTEGER NOT NULL REFERENCES schueler (id),"
+        " note_hj1 FLOAT,"
+        " selbsteinschaetzung VARCHAR(100),"
+        " bemerkung TEXT,"
+        " note_hj2 FLOAT,"
+        " CONSTRAINT uq_zeugnisnote_lernfeld_schueler UNIQUE (lernfeld_id, schueler_id))"
+    )
+    conn.exec_driver_sql(
+        "INSERT INTO zeugnisnoten_neu (id, lernfeld_id, schueler_id, note_hj1) "
+        "SELECT id, lernfeld_id, schueler_id, note FROM zeugnisnoten"
+    )
+    conn.exec_driver_sql("DROP TABLE zeugnisnoten")
+    conn.exec_driver_sql("ALTER TABLE zeugnisnoten_neu RENAME TO zeugnisnoten")
+
+
 MIGRATIONS = [
     _m_0001_schueler_betrieb_id,
     _m_0002_klasse_dienst_hinweis,
     _m_0003_noteneintrag_abwesend_kommentar,
+    _m_0004_zeugnis_hj1_hj2,
 ]
 
 

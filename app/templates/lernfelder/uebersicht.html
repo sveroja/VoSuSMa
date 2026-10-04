@@ -39,7 +39,10 @@
                             </th>
                         {% endfor %}
                         <th class="gesamt" title="Automatisch berechnet: gewichteter Schnitt der Kategorie-Durchschnitte (eine Nachkommastelle). Nur Orientierung für die Zeugnisnote."><span class="th-hilfe">Gesamt berechnet</span></th>
-                        <th class="zeugnis" title="Von dir festgelegte Zeugnisnote (pädagogische Entscheidung, 1,0–6,0). Wird nicht automatisch übernommen. Leer = noch nicht festgelegt."><span class="th-hilfe">Zeugnisnote</span></th>
+                        <th class="zeugnis" title="Zeugnisnote 1. Halbjahr – von dir festgelegt (pädagogische Entscheidung, 1,0–6,0). Wird nicht automatisch übernommen; grau steht die berechnete Note als Hilfe."><span class="th-hilfe">Zeugnis HJ1</span></th>
+                        <th class="zeugnis-doku" title="Selbsteinschätzung der SuS (freier Kurztext, z.B. die Note, die sie sich selbst geben)."><span class="th-hilfe">Selbsteinschätzung</span></th>
+                        <th class="zeugnis-doku" title="Freie Bemerkung zur Dokumentation (z.B. Gesprächsnotiz, Begründung der Zeugnisnote). Feld lässt sich unten rechts aufziehen."><span class="th-hilfe">Bemerkung</span></th>
+                        <th class="zeugnis" title="Zeugnisnote 2. Halbjahr – von dir festgelegt (1,0–6,0). Grau steht die berechnete Note als Hilfe."><span class="th-hilfe">Zeugnis HJ2</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -55,11 +58,26 @@
                                 {% endif %}
                             {% endfor %}
                             {{ notezelle(zeile.gesamt, "gesamt") }}
+                            {% set wer = zeile.schueler.nachname ~ ", " ~ zeile.schueler.vorname %}
+                            {% set vorschlag = '%.1f'|format(zeile.gesamt)|replace('.', ',') if zeile.gesamt is not none else '–' %}
                             <td class="zeugnis">
                                 <input class="zell-input" type="text" inputmode="decimal" autocomplete="off"
-                                       form="zeugnis-form" name="zn_{{ zeile.schueler.id }}" value="{{ zeile.zeugnis }}"
-                                       placeholder="{{ '%.1f'|format(zeile.gesamt)|replace('.', ',') if zeile.gesamt is not none else '–' }}"
-                                       aria-label="Zeugnisnote {{ zeile.schueler.nachname }}, {{ zeile.schueler.vorname }}">
+                                       form="zeugnis-form" name="hj1_{{ zeile.schueler.id }}" value="{{ zeile.zeugnis.hj1 }}"
+                                       placeholder="{{ vorschlag }}" aria-label="Zeugnis HJ1 {{ wer }}">
+                            </td>
+                            <td class="zeugnis-doku">
+                                <input class="zell-text zell-text--kurz" type="text" autocomplete="off" maxlength="100"
+                                       form="zeugnis-form" name="selbst_{{ zeile.schueler.id }}" value="{{ zeile.zeugnis.selbst }}"
+                                       aria-label="Selbsteinschätzung {{ wer }}">
+                            </td>
+                            <td class="zeugnis-doku">
+                                <textarea class="zell-text zell-text--lang" rows="1" form="zeugnis-form"
+                                          name="bem_{{ zeile.schueler.id }}" aria-label="Bemerkung {{ wer }}">{{ zeile.zeugnis.bem }}</textarea>
+                            </td>
+                            <td class="zeugnis">
+                                <input class="zell-input" type="text" inputmode="decimal" autocomplete="off"
+                                       form="zeugnis-form" name="hj2_{{ zeile.schueler.id }}" value="{{ zeile.zeugnis.hj2 }}"
+                                       placeholder="{{ vorschlag }}" aria-label="Zeugnis HJ2 {{ wer }}">
                             </td>
                         </tr>
                     {% endfor %}
@@ -68,14 +86,14 @@
         </div>
         <form id="zeugnis-form" method="post" class="form__actions"
               action="{{ url_for('lernfelder.zeugnisnoten_speichern', klasse_id=klasse.id, lernfeld_id=lernfeld.id) }}">
-            <button type="submit">Zeugnisnoten speichern</button>
+            <button type="submit">Zeugnis-Spalten speichern</button>
         </form>
         <p class="hinweis">
             Gewichtung: {% for bezeichnung, prozent in gewicht_info %}{{ bezeichnung }} {{ prozent }}%{% if not loop.last %} · {% endif %}{% endfor %}.
             Gesamtnote aus den Kategorie-Schnitten (Abgabe zählt bei Gewicht&nbsp;0 nicht mit).
             Spaltenkopf anklicken → alle Einzelnoten der Kategorie (dort auch änderbar). Markiert: ab 4,5 gelb, ab 5,5 rot.
             Rote Zelle mit <code>na</code>/<code>–</code> = kein Ergebnis bei dieser Arbeit → nachschreiben.
-            Zeugnisnote: frei eintragen (grau vorbelegt steht die berechnete Note nur als Hilfe), dann „Zeugnisnoten speichern“.
+            Zeugnis HJ1/HJ2, Selbsteinschätzung und Bemerkung frei eintragen (grau steht die berechnete Note nur als Hilfe), dann „Zeugnis-Spalten speichern“.
             Maus über einen Spaltenkopf zeigt eine Erklärung.
         </p>
     {% endif %}

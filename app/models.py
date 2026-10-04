@@ -279,16 +279,21 @@ class Lernfeld(_LernfeldNamen, db.Model):
 
 
 class Zeugnisnote(db.Model):
-    """Manuell festgelegte Zeugnisnote je SuS und Lernfeld (wie "Note manuell"
-    im Excel-"Gesamt"). Steht bewusst NEBEN der berechneten Gesamtnote statt sie
-    zu ersetzen - Zeugnisnoten sind eine paedagogische Entscheidung, die
-    Berechnung bleibt als Orientierung sichtbar."""
+    """Zeugnis-Dokumentation je SuS und Lernfeld: manuell festgelegte Noten
+    fuer Halbjahr 1 und 2 (wie "Note manuell" im Excel-"Gesamt") plus
+    Selbsteinschaetzung der SuS und freie Bemerkung. Steht bewusst NEBEN der
+    berechneten Gesamtnote statt sie zu ersetzen - Zeugnisnoten sind eine
+    paedagogische Entscheidung, die Berechnung bleibt als Orientierung sichtbar.
+    Alle Felder optional; eine Zeile ohne jeden Inhalt wird geloescht."""
     __tablename__ = "zeugnisnoten"
 
     id = db.Column(db.Integer, primary_key=True)
     lernfeld_id = db.Column(db.Integer, db.ForeignKey("lernfelder.id"), nullable=False)
     schueler_id = db.Column(db.Integer, db.ForeignKey("schueler.id"), nullable=False)
-    note = db.Column(db.Float, nullable=False)
+    note_hj1 = db.Column(db.Float, nullable=True)
+    selbsteinschaetzung = db.Column(db.String(100), nullable=True)
+    bemerkung = db.Column(db.Text, nullable=True)
+    note_hj2 = db.Column(db.Float, nullable=True)
 
     lernfeld = db.relationship("Lernfeld", back_populates="zeugnisnoten")
     schueler = db.relationship("Schueler")

@@ -184,8 +184,8 @@ def detail(schueler_id):
                     "lernfeld": lernfeld,
                     "kategorien": kategorien_uebersicht,
                     "gesamtnote": gesamtnote(lernfeld, je_kategorie),
-                    "zeugnisnote": next(
-                        (z.note for z in lernfeld.zeugnisnoten if z.schueler_id == schueler.id), None
+                    "zeugnis": next(
+                        (z for z in lernfeld.zeugnisnoten if z.schueler_id == schueler.id), None
                     ),
                 }
             )

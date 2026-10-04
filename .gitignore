@@ -18,6 +18,11 @@ LessonStudentList*
 # `git add -f importTool.ods` aufnehmen.
 /*.ods
 
+# PDFs (Blockplaene, Ausdrucke, Zeugnis-/Notenlisten) bleiben lokal - koennen
+# SuS-Daten enthalten. Gilt in allen Unterordnern, auch fuer .PDF.
+*.pdf
+*.PDF
+
 # --- Konfiguration / Secrets ------------------------------------------------
 # .env liegt pro Ordner (z.B. APP_ENV=prod im Prod-Ordner) und bleibt lokal.
 .env

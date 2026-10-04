@@ -995,3 +995,34 @@ td.spalte-wahl {
     width: 2rem;
     text-align: center;
 }
+
+/* Zeugnis-Dokumentation (Selbsteinschaetzung, Bemerkung) zwischen HJ1 und HJ2 */
+th.zeugnis-doku,
+td.zeugnis-doku {
+    background: var(--color-primary-soft);
+}
+
+.matrix td.zeugnis-doku {
+    white-space: normal;
+}
+
+.matrix .zell-text {
+    padding: 0.3rem;
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.matrix .zell-text--kurz {
+    width: 7rem;
+}
+
+.matrix .zell-text--lang {
+    width: 16rem;
+    min-height: 2rem;
+    resize: vertical;
+    display: block;
+}
+
+.zeugnis-bemerkung {
+    white-space: pre-line;
+}
